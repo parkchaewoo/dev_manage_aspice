@@ -1,4 +1,5 @@
 """Document and project export service / 문서 및 프로젝트 내보내기 서비스"""
+import json
 import os
 from datetime import date
 
@@ -43,6 +44,49 @@ def _get_template_content(swe_level):
         return f.read()
 
 
+def _items_to_markdown(items, swe_level):
+    """Convert JSON items to markdown table based on SWE level."""
+    if not items:
+        return ""
+
+    # Define headers per SWE level
+    headers_map = {
+        "SWE.1": ["ID", "Requirement", "Priority", "Verification", "Notes"],
+        "SWE.2": ["ID", "Component", "Responsibility", "Input", "Output", "Notes"],
+        "SWE.3": ["ID", "Function", "Input", "Output", "Description", "Notes"],
+        "SWE.4": ["ID", "Function", "Test Description", "Expected", "Actual", "Result", "Notes"],
+        "SWE.5": ["ID", "Interface", "Test Description", "Expected", "Actual", "Result", "Notes"],
+        "SWE.6": ["ID", "Req ID", "Test Description", "Expected", "Actual", "Result", "Notes"],
+    }
+    keys_map = {
+        "SWE.1": ["id", "requirement", "priority", "verification", "notes"],
+        "SWE.2": ["id", "component", "responsibility", "input", "output", "notes"],
+        "SWE.3": ["id", "function", "input", "output", "description", "notes"],
+        "SWE.4": ["id", "function", "test_desc", "expected", "actual", "result", "notes"],
+        "SWE.5": ["id", "interface", "test_desc", "expected", "actual", "result", "notes"],
+        "SWE.6": ["id", "req_id", "test_desc", "expected", "actual", "result", "notes"],
+    }
+
+    headers = headers_map.get(swe_level)
+    keys = keys_map.get(swe_level)
+
+    if not headers or not keys:
+        # Fallback: use keys from first item
+        keys = list(items[0].keys()) if items else []
+        headers = [k.replace("_", " ").title() for k in keys]
+
+    lines = []
+    # Header row
+    lines.append("| " + " | ".join(headers) + " |")
+    lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
+    # Data rows
+    for item in items:
+        row = [str(item.get(k, "")) for k in keys]
+        lines.append("| " + " | ".join(row) + " |")
+
+    return "\n".join(lines)
+
+
 def export_to_markdown(doc_id, output_path, conn=None):
     """Export document with template filled in as markdown file."""
     should_close = conn is None
@@ -62,26 +106,47 @@ def export_to_markdown(doc_id, output_path, conn=None):
     if should_close:
         conn.close()
 
-    template = _get_template_content(stage["swe_level"])
-    if template is None:
-        # Fallback: generate a simple markdown document
-        template = (
-            "# {project_name} - {document_name}\n\n"
-            "| Field | Value |\n|---|---|\n"
-            "| OEM | {oem_name} |\n"
-            "| Date | {date} |\n"
-            "| Stage | {swe_level} |\n"
-            "| Status | {status} |\n"
-        )
+    swe_level = stage["swe_level"]
 
-    # Fill placeholders
-    content = template.replace("{project_name}", project["name"])
-    content = content.replace("{oem_name}", oem["name"])
-    content = content.replace("{date}", str(date.today()))
-    content = content.replace("{document_id}", doc["name"])
-    content = content.replace("{document_name}", doc["name"])
-    content = content.replace("{status}", doc["status"])
-    content = content.replace("{swe_level}", stage["swe_level"])
+    # Build document header
+    header = (
+        f"# {project['name']} - {doc['name']}\n\n"
+        f"| Field | Value |\n|---|---|\n"
+        f"| OEM | {oem['name']} |\n"
+        f"| Date | {date.today()} |\n"
+        f"| Stage | {swe_level} |\n"
+        f"| Status | {doc['status']} |\n\n"
+        f"---\n\n"
+    )
+
+    # Handle document content - try JSON items first, fall back to plain text
+    try:
+        doc_content = doc["content"] or ""
+    except (IndexError, KeyError):
+        doc_content = ""
+    content_body = ""
+
+    try:
+        items = json.loads(doc_content)
+        if isinstance(items, list) and items:
+            content_body = _items_to_markdown(items, swe_level)
+    except (json.JSONDecodeError, TypeError):
+        # Legacy plain text / markdown content - use as-is
+        content_body = doc_content
+
+    if not content_body:
+        # Fall back to template if no content
+        template = _get_template_content(swe_level)
+        if template:
+            content_body = template.replace("{project_name}", project["name"])
+            content_body = content_body.replace("{oem_name}", oem["name"])
+            content_body = content_body.replace("{date}", str(date.today()))
+            content_body = content_body.replace("{document_id}", doc["name"])
+            content_body = content_body.replace("{document_name}", doc["name"])
+            content_body = content_body.replace("{status}", doc["status"])
+            content_body = content_body.replace("{swe_level}", swe_level)
+
+    content = header + content_body
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
