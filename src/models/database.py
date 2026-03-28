@@ -136,18 +136,57 @@ def initialize_schema(conn=None):
     """)
     conn.commit()
 
-    # Migration: add content column if missing (for existing DBs)
-    try:
-        conn.execute("SELECT content FROM documents LIMIT 1")
-    except Exception:
-        try:
-            conn.execute("ALTER TABLE documents ADD COLUMN content TEXT DEFAULT ''")
-            conn.commit()
-        except Exception:
-            pass
+    # === Migrations for existing DBs ===
+    _run_migrations(conn)
 
     if should_close:
         conn.close()
+
+
+def _run_migrations(conn):
+    """기존 DB에 대한 스키마 마이그레이션"""
+    migrations = [
+        ("SELECT content FROM documents LIMIT 1",
+         "ALTER TABLE documents ADD COLUMN content TEXT DEFAULT ''"),
+        ("SELECT phase_id FROM stages LIMIT 1",
+         "ALTER TABLE stages ADD COLUMN phase_id INTEGER"),
+    ]
+    for check_sql, alter_sql in migrations:
+        try:
+            conn.execute(check_sql)
+        except Exception:
+            try:
+                conn.execute(alter_sql)
+                conn.commit()
+            except Exception:
+                pass
+
+    # Ensure phases and phase_logs tables exist (they're in CREATE IF NOT EXISTS, but just in case)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS phases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            phase_order INTEGER DEFAULT 1,
+            status TEXT DEFAULT 'Active',
+            inherited_from_phase_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS phase_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            phase_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            entity_type TEXT DEFAULT '',
+            entity_id INTEGER,
+            description TEXT DEFAULT '',
+            user_name TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (phase_id) REFERENCES phases(id) ON DELETE CASCADE
+        );
+    """)
+    conn.commit()
 
 
 def is_db_initialized(conn=None):

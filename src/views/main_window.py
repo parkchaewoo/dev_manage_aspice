@@ -151,6 +151,8 @@ class MainWindow(QMainWindow):
         file_menu.addAction("Export as JSON...", self._export_json)
         file_menu.addAction("Import from JSON...", self._import_json)
         file_menu.addSeparator()
+        file_menu.addAction("Reset Demo Data / 데모 초기화...", self._reset_demo_data)
+        file_menu.addSeparator()
         file_menu.addAction("Exit", self.close)
 
         # Project 메뉴
@@ -431,9 +433,39 @@ class MainWindow(QMainWindow):
                     self, "Report Error / 보고서 오류", str(e)
                 )
 
+    def _reset_demo_data(self):
+        """DB 삭제 후 데모 데이터 재생성"""
+        reply = QMessageBox.question(
+            self, "Reset Demo Data / 데모 초기화",
+            "This will DELETE all current data and recreate demo projects.\n"
+            "현재 모든 데이터를 삭제하고 데모 프로젝트를 다시 생성합니다.\n\n"
+            "Proceed / 진행하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+        import os
+        from src.models.database import DB_PATH, initialize_schema
+        from src.services.demo_data_service import create_demo_data
+        try:
+            if os.path.exists(DB_PATH):
+                os.remove(DB_PATH)
+            conn = get_connection()
+            initialize_schema(conn)
+            create_demo_data(conn)
+            conn.close()
+            self.current_project_id = None
+            self.current_phase_id = None
+            self.refresh_all()
+            self._show_dashboard()
+            QMessageBox.information(self, "Success", "Demo data has been reset.\n데모 데이터가 초기화되었습니다.")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to reset: {e}")
+
     def refresh_all(self):
         """전체 새로고침"""
         self.project_tree.refresh()
+        self.dashboard.refresh()
         if self.current_project_id:
             self.dashboard.load_project(self.current_project_id)
         self._check_notifications()

@@ -9,7 +9,8 @@ from src.utils.constants import SWE_STAGES, ProjectStatus, StageStatus
 
 
 def create_project_from_template(oem_id, project_name, description="", conn=None,
-                                 start_date=None, target_end_date=None):
+                                 start_date=None, target_end_date=None,
+                                 initial_phase_name=None):
     """OEM 설정 템플릿을 기반으로 프로젝트를 생성하고 모든 단계/문서/체크리스트를 초기화
 
     OEM의 config_yaml을 파싱하여 각 SWE 단계에 대해:
@@ -57,40 +58,19 @@ def create_project_from_template(oem_id, project_name, description="", conn=None
         conn=conn,
     )
 
-    # 각 SWE 단계 생성
-    for swe_level in sorted(SWE_STAGES.keys()):
-        stage_config = get_stage_config(oem_config, swe_level)
-        if stage_config is None:
-            continue
+    # Phase 생성 후 Phase 아래에 SWE 단계 생성
+    from src.services.phase_service import create_phase_from_template
 
-        # Stage 생성
-        stage_id = StageModel.create(
-            project_id=project_id,
-            swe_level=swe_level,
-            status=StageStatus.NOT_STARTED,
-            conn=conn,
-        )
+    # OEM config에서 첫 번째 Phase 이름 가져오기
+    initial_phase = initial_phase_name
+    if not initial_phase:
+        oem_phases = oem_config.get("phases", [])
+        initial_phase = oem_phases[0] if oem_phases else "Phase 1"
 
-        # required_documents에서 Document 생성
-        required_docs = stage_config.get("required_documents", [])
-        for doc_info in required_docs:
-            doc_name = doc_info.get("name", "Untitled Document")
-            template_id = doc_info.get("template_id", "")
-            DocumentModel.create(
-                stage_id=stage_id,
-                name=doc_name,
-                template_type=template_id,
-                conn=conn,
-            )
+    create_phase_from_template(project_id, initial_phase, conn=conn)
 
-        # checklist에서 ChecklistItem 생성
-        checklist_items = stage_config.get("checklist", [])
-        for item_desc in checklist_items:
-            ChecklistModel.create(
-                stage_id=stage_id,
-                description=item_desc,
-                conn=conn,
-            )
+    if should_close:
+        conn.close()
 
     return project_id
 

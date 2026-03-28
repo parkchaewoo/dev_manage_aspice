@@ -24,11 +24,19 @@ class NewProjectDialog(QDialog):
         # OEM 선택
         self.oem_combo = QComboBox()
         conn = get_connection()
-        oems = OemModel.get_all(conn)
+        self._oems = OemModel.get_all(conn)
         conn.close()
-        for oem in oems:
+        for oem in self._oems:
             self.oem_combo.addItem(oem["name"], oem["id"])
+        self.oem_combo.currentIndexChanged.connect(self._on_oem_changed)
         layout.addRow("OEM:", self.oem_combo)
+
+        # Initial Phase / 시작 단계
+        self.phase_combo = QComboBox()
+        self.phase_combo.setEditable(True)
+        self.phase_combo.setPlaceholderText("Select or type phase / 단계 선택 또는 입력")
+        layout.addRow("Initial Phase / 시작 단계:", self.phase_combo)
+        self._on_oem_changed()  # 초기 로드
 
         # 프로젝트 이름
         self.name_edit = QLineEdit()
@@ -64,6 +72,25 @@ class NewProjectDialog(QDialog):
         btn_layout.addWidget(create_btn)
         layout.addRow(btn_layout)
 
+    def _on_oem_changed(self):
+        """OEM 변경 시 Phase 목록 업데이트"""
+        self.phase_combo.clear()
+        idx = self.oem_combo.currentIndex()
+        if 0 <= idx < len(self._oems):
+            oem = self._oems[idx]
+            config_yaml = oem["config_yaml"] or ""
+            if config_yaml.strip():
+                try:
+                    from src.utils.yaml_helpers import load_yaml_string
+                    config = load_yaml_string(config_yaml)
+                    phases = config.get("phases", []) if config else []
+                    for p in phases:
+                        self.phase_combo.addItem(str(p))
+                except Exception:
+                    pass
+        if self.phase_combo.count() == 0:
+            self.phase_combo.addItem("Phase 1")
+
     def _create(self):
         name = self.name_edit.text().strip()
         if not name:
@@ -83,6 +110,7 @@ class NewProjectDialog(QDialog):
                 description=self.desc_edit.text(),
                 start_date=self.start_date.date().toString("yyyy-MM-dd"),
                 target_end_date=self.end_date.date().toString("yyyy-MM-dd"),
+                initial_phase_name=self.phase_combo.currentText().strip() or None,
                 conn=conn
             )
             conn.close()
