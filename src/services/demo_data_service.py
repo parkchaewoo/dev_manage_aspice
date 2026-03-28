@@ -339,11 +339,6 @@ def _create_full_traceability(doc_ids, conn):
             doc_ids["SWE.1"][0], doc_ids["SWE.6"][0],
             "verifies", "요구사항 적격성 시험 추적", conn
         )
-        if len(doc_ids["SWE.1"]) > 1 and len(doc_ids["SWE.6"]) > 1:
-            TraceabilityModel.create(
-                doc_ids["SWE.1"][1], doc_ids["SWE.6"][1],
-                "verifies", "검토 보고서 추적", conn
-            )
     # SWE.2 <-> SWE.5
     if doc_ids.get("SWE.2") and doc_ids.get("SWE.5"):
         TraceabilityModel.create(
