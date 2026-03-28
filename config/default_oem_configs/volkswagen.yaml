@@ -1,6 +1,8 @@
 oem_name: "Volkswagen Group (Volkswagen AG)"
 description: "Volkswagen Group ASPICE configuration. Aligned with VW group standards (KPM, KGAS, QTR), German/English naming conventions, and VW group-specific process requirements."
 
+phases: ["A-Muster", "B-Muster", "C-Muster", "SOP"]
+
 stages:
   SWE.1:
     enabled: true

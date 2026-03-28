@@ -158,8 +158,11 @@ class DocumentEditorWidget(QWidget):
         dialog = DocumentDialog(self, stage_id=self.stage_id)
         if dialog.exec_():
             data = dialog.get_data()
-            DocumentModel.create(self.stage_id, **data)
-            self.load_stage(self.stage_id)
+            try:
+                DocumentModel.create(self.stage_id, **data)
+                self.load_stage(self.stage_id)
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"Failed to create document:\n{e}")
 
     def _edit_document(self, doc_id):
         doc = DocumentModel.get_by_id(doc_id)

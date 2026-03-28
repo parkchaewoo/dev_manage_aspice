@@ -7,6 +7,8 @@ from src.models.document import DocumentModel
 from src.models.checklist import ChecklistModel
 from src.models.traceability import TraceabilityModel
 from src.models.schedule import ScheduleModel
+from src.models.phase import PhaseModel
+from src.models.phase_log import PhaseLogModel
 from src.utils.constants import SWE_STAGES
 from src.utils.yaml_helpers import load_yaml, dump_yaml_string
 
@@ -22,7 +24,7 @@ def _load_oem_yaml(filename):
         return ""
 
 
-def _create_stages_from_config(project_id, config_yaml_str, conn):
+def _create_stages_from_config(project_id, config_yaml_str, conn, phase_id=None):
     """OEM 설정에 기반하여 단계/문서/체크리스트 생성"""
     from src.utils.yaml_helpers import load_yaml_string
     config = load_yaml_string(config_yaml_str) if config_yaml_str else {}
@@ -36,7 +38,7 @@ def _create_stages_from_config(project_id, config_yaml_str, conn):
         if stage_conf.get("enabled", True) is False:
             continue
 
-        stage_id = StageModel.create(project_id, swe_level, conn=conn)
+        stage_id = StageModel.create(project_id, swe_level, phase_id=phase_id, conn=conn)
         stage_ids[swe_level] = stage_id
 
         # 문서 생성

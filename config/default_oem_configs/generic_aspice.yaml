@@ -1,6 +1,8 @@
 oem_name: "Generic ASPICE"
 description: "Generic Automotive SPICE template covering all SWE.1 through SWE.6 process areas. Suitable as a baseline for any OEM or Tier-1 supplier."
 
+phases: ["Phase 1", "Phase 2", "Phase 3"]
+
 stages:
   SWE.1:
     enabled: true

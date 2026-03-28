@@ -45,9 +45,35 @@ def initialize_schema(conn=None):
             FOREIGN KEY (oem_id) REFERENCES oems(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS phases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            phase_order INTEGER DEFAULT 1,
+            status TEXT DEFAULT 'Active',
+            inherited_from_phase_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY (inherited_from_phase_id) REFERENCES phases(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS phase_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            phase_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            entity_type TEXT DEFAULT '',
+            entity_id INTEGER,
+            description TEXT DEFAULT '',
+            user_name TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (phase_id) REFERENCES phases(id) ON DELETE CASCADE
+        );
+
         CREATE TABLE IF NOT EXISTS stages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL,
+            phase_id INTEGER,
             swe_level TEXT NOT NULL,
             status TEXT DEFAULT 'Not Started',
             planned_start DATE,
@@ -55,7 +81,8 @@ def initialize_schema(conn=None):
             actual_start DATE,
             actual_end DATE,
             notes TEXT DEFAULT '',
-            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY (phase_id) REFERENCES phases(id) ON DELETE SET NULL
         );
 
         CREATE TABLE IF NOT EXISTS documents (

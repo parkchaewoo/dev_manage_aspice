@@ -188,7 +188,8 @@ class VModelWidget(QWidget):
         conn.close()
 
         # 전체 장면에 맞추기
-        self.view.fitInView(self.scene.sceneRect().adjusted(-30, -30, 30, 30), Qt.KeepAspectRatio)
+        if self.scene.items():
+            self.view.fitInView(self.scene.sceneRect().adjusted(-30, -30, 30, 30), Qt.KeepAspectRatio)
 
     def _on_trace_clicked(self, stage_id_1, stage_id_2):
         """추적성 라인 클릭 시 상세 뷰"""
