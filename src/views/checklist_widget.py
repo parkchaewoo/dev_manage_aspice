@@ -17,15 +17,17 @@ class ChecklistWidget(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
 
         # 헤더
         header = QHBoxLayout()
-        header.addWidget(QLabel("Checklist / 체크리스트"))
+        title = QLabel("Checklist")
+        title.setStyleSheet("font-weight:bold; font-size:14px;")
+        header.addWidget(title)
         header.addStretch()
 
         self.progress_label = QLabel("0/0")
-        self.progress_label.setProperty("caption", True)
+        self.progress_label.setStyleSheet("color:#007AFF; font-weight:bold;")
         header.addWidget(self.progress_label)
         layout.addLayout(header)
 
@@ -107,7 +109,7 @@ class ChecklistWidget(QWidget):
 
         if is_excluded:
             cb.setStyleSheet(
-                "background-color: #E8E8E8; text-decoration: line-through; color: #8E8E93;"
+                "background-color: #E8E8E8; text-decoration: line-through; color: #666666;"
             )
             cb.setEnabled(False)
         elif item["is_checked"]:
@@ -118,7 +120,7 @@ class ChecklistWidget(QWidget):
 
         # Exclude / N.A. button
         excl_btn = QPushButton("N/A" if not is_excluded else "Incl")
-        excl_btn.setMaximumSize(40, 28)
+        excl_btn.setMaximumSize(50, 28)
         excl_btn.setStyleSheet(
             "background-color: transparent; color: #FF9500; "
             "border: 1px solid #FF9500; border-radius: 4px; font-size: 11px;"

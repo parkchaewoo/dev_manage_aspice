@@ -132,7 +132,8 @@ class DashboardWidget(QWidget):
             row_layout = QHBoxLayout()
 
             name_label = QLabel(f"{swe}: {SWE_STAGES[swe]['name_ko']}")
-            name_label.setMinimumWidth(250)
+            name_label.setMinimumWidth(280)
+            name_label.setWordWrap(True)
             row_layout.addWidget(name_label)
 
             # 상태 배지

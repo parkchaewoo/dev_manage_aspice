@@ -25,12 +25,12 @@ class GuidePanel(QWidget):
         # 언어 토글
         lang_layout = QHBoxLayout()
         self.btn_ko = QPushButton("한국어")
-        self.btn_ko.setMaximumWidth(80)
+        self.btn_ko.setMaximumWidth(90)
         self.btn_ko.clicked.connect(lambda: self._set_lang("ko"))
         lang_layout.addWidget(self.btn_ko)
 
         self.btn_en = QPushButton("English")
-        self.btn_en.setMaximumWidth(80)
+        self.btn_en.setMaximumWidth(90)
         self.btn_en.setProperty("secondary", True)
         self.btn_en.clicked.connect(lambda: self._set_lang("en"))
         lang_layout.addWidget(self.btn_en)
