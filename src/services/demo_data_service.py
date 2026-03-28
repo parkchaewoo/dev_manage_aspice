@@ -244,18 +244,12 @@ def _create_stages_from_config(project_id, config_yaml_str, conn, phase_id=None)
         if not docs:
             # 기본 문서
             default_docs = {
-                "SWE.1": [("Software Requirements Specification (SRS)", "srs"),
-                          ("Requirements Review Report", "req_review")],
-                "SWE.2": [("Software Architecture Document (SAD)", "sad"),
-                          ("Interface Design Document", "idd")],
-                "SWE.3": [("Software Detailed Design (SDD)", "sdd"),
-                          ("Source Code", "code")],
-                "SWE.4": [("Unit Test Plan", "ut_plan"),
-                          ("Unit Test Report", "ut_report")],
-                "SWE.5": [("Integration Test Plan", "it_plan"),
-                          ("Integration Test Report", "it_report")],
-                "SWE.6": [("Qualification Test Plan", "qt_plan"),
-                          ("Qualification Test Report", "qt_report")],
+                "SWE.1": [("Software Requirements Specification", "srs")],
+                "SWE.2": [("Software Architecture Design", "sad")],
+                "SWE.3": [("Software Detailed Design", "sdd")],
+                "SWE.4": [("Unit Test Report", "ut_report")],
+                "SWE.5": [("Integration Test Report", "it_report")],
+                "SWE.6": [("Qualification Test Report", "qt_report")],
             }
             docs = [{"name": n, "template_id": t} for n, t in default_docs.get(swe_level, [])]
 
