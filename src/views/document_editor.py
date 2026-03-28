@@ -223,12 +223,14 @@ class DocumentEditorWidget(QWidget):
         add_row.addWidget(self.save_indicator)
         layout.addLayout(add_row)
 
-        # 아이템 테이블 (직접 편집 가능)
+        # 아이템 테이블 (직접 편집 + 수평 스크롤)
         self.table = QTableWidget()
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setWordWrap(True)
+        self.table.setHorizontalScrollMode(QTableWidget.ScrollPerPixel)
+        self.table.setVerticalScrollMode(QTableWidget.ScrollPerPixel)
         self.table.setStyleSheet("""
             QTableWidget { border:1px solid #E5E5EA; border-radius:8px; font-size:13px; }
             QTableWidget::item { padding:6px 10px; }
@@ -325,7 +327,8 @@ class DocumentEditorWidget(QWidget):
             if i == 0:
                 self.table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
             else:
-                self.table.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
+                self.table.horizontalHeader().setSectionResizeMode(i, QHeaderView.Interactive)
+                self.table.setColumnWidth(i, 200)  # 최소 200px, 드래그로 조절 가능
         self.table.horizontalHeader().setSectionResizeMode(len(cols) - 1, QHeaderView.Fixed)
         self.table.setColumnWidth(len(cols) - 1, 40)
 
