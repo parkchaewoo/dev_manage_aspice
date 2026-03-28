@@ -47,31 +47,7 @@ ___
 
 ---
 
-## 4. Traceability / 추적성
-
-### 4.1 Upstream / 상위 추적성 (System Req -> SW Req)
-
-(시스템 요구사항과 본 문서 요구사항의 연결 / Link system requirements to SW requirements)
-
-| System Req ID | SW Req ID | Coverage |
-|---------------|-----------|----------|
-| ___ | SWE1-REQ-001 | Full / Partial |
-| ___ | SWE1-REQ-002 | Full / Partial |
-| ___ | SWE1-REQ-003 | Full / Partial |
-
-### 4.2 Downstream / 하위 추적성 (SW Req -> Test Case)
-
-(요구사항별 시험 항목 연결 / Link requirements to test cases)
-
-| SW Req ID | Test Case ID | Description |
-|-----------|-------------|-------------|
-| SWE1-REQ-001 | QT-001 | ___ |
-| SWE1-REQ-002 | QT-002 | ___ |
-| SWE1-REQ-003 | QT-003 | ___ |
-
----
-
-## 5. Review / 검토 이력
+## 4. Review / 검토 이력
 
 | Date / 날짜 | Reviewer / 검토자 | Result / 결과 | Comments / 비고 |
 |------------|-----------------|--------------|----------------|

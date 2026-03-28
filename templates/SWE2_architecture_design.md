@@ -66,19 +66,7 @@ ___
 
 ---
 
-## 5. Traceability / 추적성
-
-(SWE.1 요구사항과 아키텍처 컴포넌트의 연결 / Link SWE.1 requirements to components)
-
-| SWE.1 Req ID | Architecture Component | Coverage |
-|-------------|----------------------|----------|
-| SWE1-REQ-001 | ___ | Full / Partial |
-| SWE1-REQ-002 | ___ | Full / Partial |
-| SWE1-REQ-003 | ___ | Full / Partial |
-
----
-
-## 6. Review / 검토 이력
+## 5. Review / 검토 이력
 
 | Date / 날짜 | Reviewer / 검토자 | Result / 결과 | Comments / 비고 |
 |------------|-----------------|--------------|----------------|
