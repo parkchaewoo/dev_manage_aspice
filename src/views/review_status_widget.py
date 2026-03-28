@@ -8,6 +8,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
 
 from src.models.document import DocumentModel
+from src.models.review_record import ReviewRecordModel
 from src.utils.constants import DocumentStatus, STATUS_COLORS
 
 
@@ -37,17 +38,26 @@ class ReviewStatusWidget(QWidget):
 
         layout.addWidget(self.summary_frame)
 
+        # 리뷰 기록 추가 버튼
+        btn_bar = QHBoxLayout()
+        self.btn_add_review_record = QPushButton("Add Review Record / 리뷰 기록 추가")
+        self.btn_add_review_record.clicked.connect(self._on_add_review_record)
+        btn_bar.addWidget(self.btn_add_review_record)
+        btn_bar.addStretch()
+        layout.addLayout(btn_bar)
+
         # 문서 리뷰 테이블
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
+        self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels([
             "Document / 문서", "Current Status / 현재 상태",
-            "Action / 다음 단계", ""
+            "Reviews / 리뷰 수", "Action / 다음 단계", ""
         ])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.table.verticalHeader().setVisible(False)
         layout.addWidget(self.table)
 
@@ -94,6 +104,7 @@ class ReviewStatusWidget(QWidget):
 
         # 테이블 업데이트
         self.table.setRowCount(len(docs))
+        self._docs = docs
         for i, doc in enumerate(docs):
             self.table.setItem(i, 0, QTableWidgetItem(doc["name"]))
 
@@ -102,6 +113,12 @@ class ReviewStatusWidget(QWidget):
             status_item.setBackground(QColor(color))
             status_item.setForeground(QColor("white"))
             self.table.setItem(i, 1, status_item)
+
+            # 리뷰 기록 수
+            review_records = ReviewRecordModel.get_by_document(doc["id"], conn)
+            count_item = QTableWidgetItem(str(len(review_records)))
+            count_item.setTextAlignment(Qt.AlignCenter)
+            self.table.setItem(i, 2, count_item)
 
             # 가능한 다음 액션
             transitions = DocumentStatus.TRANSITIONS.get(doc["status"], [])
@@ -112,11 +129,11 @@ class ReviewStatusWidget(QWidget):
                 combo.currentTextChanged.connect(
                     lambda new_status, did=doc["id"]: self._transition(did, new_status)
                 )
-                self.table.setCellWidget(i, 2, combo)
+                self.table.setCellWidget(i, 3, combo)
             else:
-                self.table.setItem(i, 2, QTableWidgetItem("Complete"))
+                self.table.setItem(i, 3, QTableWidgetItem("Complete"))
 
-            self.table.setItem(i, 3, QTableWidgetItem(""))
+            self.table.setItem(i, 4, QTableWidgetItem(""))
 
         if should_close:
             conn.close()
@@ -126,6 +143,22 @@ class ReviewStatusWidget(QWidget):
             if child.objectName().startswith("count_"):
                 child.setText(str(count))
                 break
+
+    def _on_add_review_record(self):
+        """리뷰 기록 추가 다이얼로그 열기"""
+        if not hasattr(self, '_docs') or not self._docs:
+            return
+        # 현재 선택된 행의 문서 또는 첫 번째 문서 사용
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self._docs):
+            row = 0
+        doc_id = self._docs[row]["id"]
+
+        from src.views.review_record_dialog import ReviewRecordDialog
+        from PyQt5.QtWidgets import QDialog
+        dlg = ReviewRecordDialog(doc_id, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            self.load_stage(self.stage_id)
 
     def _transition(self, doc_id, new_status):
         if new_status == "-- Select --":
