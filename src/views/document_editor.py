@@ -122,26 +122,20 @@ class DocumentEditorWidget(QWidget):
         left_layout.setSpacing(6)
 
         left_header = QHBoxLayout()
-        left_header.addWidget(QLabel("Documents"))
-        self.btn_add = QPushButton("+ Add")
-        self.btn_add.setProperty("secondary", True)
-        self.btn_add.setMaximumWidth(80)
-        self.btn_add.clicked.connect(self._add_document)
+        title_lbl = QLabel("Documents")
+        title_lbl.setStyleSheet("font-weight:bold;")
+        left_header.addWidget(title_lbl)
         left_header.addStretch()
-        left_header.addWidget(self.btn_add)
         left_layout.addLayout(left_header)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Document", "Status", "Preview"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
+        self.table.setColumnCount(2)
+        self.table.setHorizontalHeaderLabels(["Document", "Status"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.table.setColumnWidth(0, 140)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
-        self.table.setWordWrap(True)
         self.table.cellClicked.connect(self._on_cell_clicked)
         left_layout.addWidget(self.table)
 
@@ -304,24 +298,6 @@ class DocumentEditorWidget(QWidget):
             status_item.setForeground(QColor("white"))
             status_item.setBackground(QColor(color))
             self.table.setItem(i, 1, status_item)
-
-            # 내용 미리보기 (첫 줄)
-            try:
-                content = doc["content"] or ""
-            except (IndexError, KeyError):
-                content = ""
-            first_line = ""
-            for line in content.split("\n"):
-                stripped = line.strip()
-                if stripped and not stripped.startswith("#") and not stripped.startswith("|") and not stripped.startswith("---") and not stripped.startswith("<!--"):
-                    first_line = stripped[:60]
-                    break
-            if not first_line and content.strip():
-                first_line = content.strip()[:60]
-            preview_item = QTableWidgetItem(first_line or "(empty)")
-            preview_item.setForeground(QColor("#8E8E93"))
-            self.table.setItem(i, 2, preview_item)
-            self.table.setRowHeight(i, 36)
 
         # 첫 문서 자동 선택
         if len(docs) > 0:
