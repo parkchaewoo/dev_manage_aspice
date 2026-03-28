@@ -26,6 +26,7 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self.version = version
         self.current_project_id = None
+        self.current_phase_id = None
         self.current_stage_id = None
         self.current_theme = get_saved_theme()
         self.setWindowTitle(f"ASPICE Process Manager v{version}")
@@ -86,6 +87,7 @@ class MainWindow(QMainWindow):
         # 트리 선택 시그널
         self.project_tree.oem_selected.connect(self._on_oem_selected)
         self.project_tree.project_selected.connect(self._on_project_selected)
+        self.project_tree.phase_selected.connect(self._on_phase_selected)
         self.project_tree.stage_selected.connect(self._on_stage_clicked)
 
         # 가이드 패널 독
@@ -150,6 +152,7 @@ class MainWindow(QMainWindow):
         # Project 메뉴
         project_menu = menubar.addMenu("Project")
         project_menu.addAction("New Project...", self._new_project)
+        project_menu.addAction("New Phase...", self._new_phase)
 
         # OEM 메뉴
         oem_menu = menubar.addMenu("OEM")
@@ -205,8 +208,23 @@ class MainWindow(QMainWindow):
     def _on_oem_selected(self, oem_id):
         self.status_bar.showMessage(f"OEM selected: {oem_id}")
 
+    def _on_phase_selected(self, phase_id):
+        """Handle phase selection from tree."""
+        self.current_phase_id = phase_id
+        from src.models.phase import PhaseModel
+        phase = PhaseModel.get_by_id(phase_id)
+        if phase:
+            self.current_project_id = phase["project_id"]
+            # Load vmodel/schedule/trace for the project (phase-filtered via stages)
+            self.vmodel_view.load_project(phase["project_id"], phase_id=phase_id)
+            self.stack.setCurrentIndex(2)
+            self.status_bar.showMessage(
+                f"Phase: {phase['name']} / 개발 단계 선택됨"
+            )
+
     def _on_project_selected(self, project_id):
         self.current_project_id = project_id
+        self.current_phase_id = None
         self.dashboard.load_project(project_id)
         self.stack.setCurrentIndex(0)
         self.status_bar.showMessage(f"Project loaded / 프로젝트 로드됨")
@@ -221,6 +239,19 @@ class MainWindow(QMainWindow):
     def _new_project(self):
         from src.views.new_project_dialog import NewProjectDialog
         dialog = NewProjectDialog(self)
+        if dialog.exec_():
+            self.refresh_all()
+
+    def _new_phase(self):
+        """Open new phase dialog for current project."""
+        if not self.current_project_id:
+            QMessageBox.information(
+                self, "No Project Selected",
+                "Please select a project first.\n프로젝트를 먼저 선택해주세요."
+            )
+            return
+        from src.views.new_phase_dialog import NewPhaseDialog
+        dialog = NewPhaseDialog(self.current_project_id, parent=self)
         if dialog.exec_():
             self.refresh_all()
 

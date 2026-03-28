@@ -1,4 +1,4 @@
-"""프로젝트 트리 뷰 - OEM > Project > SWE Stage 계층"""
+"""프로젝트 트리 뷰 - OEM > Project > Phase > SWE Stage 계층"""
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTreeView, QPushButton, QHBoxLayout, QMenu, QAction
 )
@@ -8,6 +8,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from src.models.database import get_connection
 from src.models.oem import OemModel
 from src.models.project import ProjectModel
+from src.models.phase import PhaseModel
 from src.models.stage import StageModel
 from src.utils.constants import SWE_STAGES, STATUS_COLORS, StageStatus
 
@@ -15,6 +16,7 @@ from src.utils.constants import SWE_STAGES, STATUS_COLORS, StageStatus
 class ProjectTreeWidget(QWidget):
     oem_selected = pyqtSignal(int)
     project_selected = pyqtSignal(int)
+    phase_selected = pyqtSignal(int)
     stage_selected = pyqtSignal(int)
 
     def __init__(self, parent=None):
@@ -76,27 +78,35 @@ class ProjectTreeWidget(QWidget):
                 proj_item.setData(("project", proj["id"]), Qt.UserRole)
                 proj_item.setForeground(QColor("#1C1C1E"))
 
-                stages = StageModel.get_by_project(proj["id"], conn)
-                for stage in stages:
-                    swe = stage["swe_level"]
-                    status = stage["status"]
-                    color = STATUS_COLORS.get(status, "#8E8E93")
+                phases = PhaseModel.get_by_project(proj["id"], conn)
+                if phases:
+                    # 4-level tree: OEM > Project > Phase > Stage
+                    for phase in phases:
+                        phase_status = phase["status"]
+                        phase_icon = "◆" if phase_status == "Completed" else "◇"
+                        phase_item = QStandardItem(
+                            f"  {phase_icon} {phase['name']} [{phase_status}]"
+                        )
+                        phase_font = QFont()
+                        phase_font.setPointSize(11)
+                        phase_font.setItalic(True)
+                        phase_item.setFont(phase_font)
+                        phase_item.setData(("phase", phase["id"]), Qt.UserRole)
+                        phase_color = "#34C759" if phase_status == "Completed" else "#007AFF"
+                        phase_item.setForeground(QColor(phase_color))
 
-                    # 상태 아이콘
-                    status_icon = "○"
-                    if status == StageStatus.COMPLETED:
-                        status_icon = "●"
-                    elif status == StageStatus.IN_PROGRESS:
-                        status_icon = "◐"
-                    elif status == StageStatus.IN_REVIEW:
-                        status_icon = "◑"
+                        stages = StageModel.get_by_phase(phase["id"], conn)
+                        for stage in stages:
+                            stage_item = self._create_stage_item(stage)
+                            phase_item.appendRow(stage_item)
 
-                    stage_name = SWE_STAGES.get(swe, {}).get("name_ko", swe)
-                    stage_item = QStandardItem(f"  {status_icon} {swe}: {stage_name}")
-                    stage_item.setData(("stage", stage["id"]), Qt.UserRole)
-                    stage_item.setForeground(QColor(color))
-
-                    proj_item.appendRow(stage_item)
+                        proj_item.appendRow(phase_item)
+                else:
+                    # Fallback: stages without phases (legacy)
+                    stages = StageModel.get_by_project(proj["id"], conn)
+                    for stage in stages:
+                        stage_item = self._create_stage_item(stage)
+                        proj_item.appendRow(stage_item)
 
                 oem_item.appendRow(proj_item)
 
@@ -104,6 +114,27 @@ class ProjectTreeWidget(QWidget):
 
         conn.close()
         self.tree.expandAll()
+
+    def _create_stage_item(self, stage):
+        """Create a tree item for a stage."""
+        swe = stage["swe_level"]
+        status = stage["status"]
+        color = STATUS_COLORS.get(status, "#8E8E93")
+
+        # 상태 아이콘
+        status_icon = "○"
+        if status == StageStatus.COMPLETED:
+            status_icon = "●"
+        elif status == StageStatus.IN_PROGRESS:
+            status_icon = "◐"
+        elif status == StageStatus.IN_REVIEW:
+            status_icon = "◑"
+
+        stage_name = SWE_STAGES.get(swe, {}).get("name_ko", swe)
+        stage_item = QStandardItem(f"  {status_icon} {swe}: {stage_name}")
+        stage_item.setData(("stage", stage["id"]), Qt.UserRole)
+        stage_item.setForeground(QColor(color))
+        return stage_item
 
     def _on_clicked(self, index):
         item = self.model.itemFromIndex(index)
@@ -115,6 +146,8 @@ class ProjectTreeWidget(QWidget):
                     self.oem_selected.emit(item_id)
                 elif item_type == "project":
                     self.project_selected.emit(item_id)
+                elif item_type == "phase":
+                    self.phase_selected.emit(item_id)
                 elif item_type == "stage":
                     self.stage_selected.emit(item_id)
 
@@ -132,7 +165,15 @@ class ProjectTreeWidget(QWidget):
 
         if item_type == "project":
             menu.addAction("Open V-Model", lambda: self.project_selected.emit(item_id))
+            menu.addAction("New Phase...", lambda: self._new_phase(item_id))
+            menu.addSeparator()
             menu.addAction("Delete Project", lambda: self._delete_project(item_id))
+        elif item_type == "phase":
+            menu.addAction("View Phase", lambda: self.phase_selected.emit(item_id))
+            menu.addAction("New Phase (Empty)...", lambda: self._new_phase_for_phase(item_id))
+            menu.addAction("Inherit from This Phase...", lambda: self._inherit_phase(item_id))
+            menu.addSeparator()
+            menu.addAction("Delete Phase", lambda: self._delete_phase(item_id))
         elif item_type == "stage":
             menu.addAction("View Details", lambda: self.stage_selected.emit(item_id))
 
@@ -142,6 +183,47 @@ class ProjectTreeWidget(QWidget):
         from src.views.new_project_dialog import NewProjectDialog
         dialog = NewProjectDialog(self.window())
         if dialog.exec_():
+            self.refresh()
+
+    def _new_phase(self, project_id):
+        """Open new phase dialog for a project."""
+        from src.views.new_phase_dialog import NewPhaseDialog
+        dialog = NewPhaseDialog(project_id, parent=self.window())
+        if dialog.exec_():
+            self.refresh()
+
+    def _new_phase_for_phase(self, phase_id):
+        """Create a new empty phase in the same project as this phase."""
+        from src.models.phase import PhaseModel
+        phase = PhaseModel.get_by_id(phase_id)
+        if phase:
+            self._new_phase(phase["project_id"])
+
+    def _inherit_phase(self, source_phase_id):
+        """Create a new phase inherited from the given phase."""
+        from src.views.new_phase_dialog import NewPhaseDialog
+        from src.models.phase import PhaseModel
+        phase = PhaseModel.get_by_id(source_phase_id)
+        if phase:
+            dialog = NewPhaseDialog(
+                phase["project_id"],
+                inherit_from_phase_id=source_phase_id,
+                parent=self.window()
+            )
+            if dialog.exec_():
+                self.refresh()
+
+    def _delete_phase(self, phase_id):
+        from PyQt5.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self, "Delete Phase / 개발 단계 삭제",
+            "Are you sure you want to delete this phase?\n"
+            "All stages, documents, and checklists in this phase will be deleted.\n"
+            "이 개발 단계를 삭제하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            PhaseModel.delete(phase_id)
             self.refresh()
 
     def _delete_project(self, project_id):
