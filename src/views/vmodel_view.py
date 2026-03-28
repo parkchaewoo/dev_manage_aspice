@@ -134,6 +134,7 @@ class VModelWidget(QWidget):
                 callback=lambda sid: self.stage_clicked.emit(sid),
                 stage_id=stage["id"],
             )
+            node.setZValue(10)  # 노드를 라인보다 앞에 표시
             self.scene.addItem(node)
             nodes[swe] = (node, stage)
 

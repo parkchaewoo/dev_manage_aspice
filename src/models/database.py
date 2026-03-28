@@ -136,6 +136,16 @@ def initialize_schema(conn=None):
     """)
     conn.commit()
 
+    # Migration: add content column if missing (for existing DBs)
+    try:
+        conn.execute("SELECT content FROM documents LIMIT 1")
+    except Exception:
+        try:
+            conn.execute("ALTER TABLE documents ADD COLUMN content TEXT DEFAULT ''")
+            conn.commit()
+        except Exception:
+            pass
+
     if should_close:
         conn.close()
 
