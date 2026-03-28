@@ -1,0 +1,156 @@
+"""프로젝트 트리 뷰 - OEM > Project > SWE Stage 계층"""
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QTreeView, QPushButton, QHBoxLayout, QMenu, QAction
+)
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QColor, QFont, QIcon
+from PyQt5.QtCore import Qt, pyqtSignal
+
+from src.models.database import get_connection
+from src.models.oem import OemModel
+from src.models.project import ProjectModel
+from src.models.stage import StageModel
+from src.utils.constants import SWE_STAGES, STATUS_COLORS, StageStatus
+
+
+class ProjectTreeWidget(QWidget):
+    oem_selected = pyqtSignal(int)
+    project_selected = pyqtSignal(int)
+    stage_selected = pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_ui()
+        self.refresh()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # 트리뷰
+        self.tree = QTreeView()
+        self.tree.setHeaderHidden(True)
+        self.tree.setAnimated(True)
+        self.tree.setIndentation(20)
+        self.tree.setEditTriggers(QTreeView.NoEditTriggers)
+        self.tree.clicked.connect(self._on_clicked)
+        self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._context_menu)
+        layout.addWidget(self.tree)
+
+        # 하단 버튼
+        btn_layout = QHBoxLayout()
+        btn_layout.setContentsMargins(8, 8, 8, 8)
+
+        self.btn_new_project = QPushButton("+ New Project")
+        self.btn_new_project.setProperty("secondary", True)
+        self.btn_new_project.clicked.connect(self._new_project)
+        btn_layout.addWidget(self.btn_new_project)
+
+        layout.addLayout(btn_layout)
+
+        self.model = QStandardItemModel()
+        self.tree.setModel(self.model)
+
+    def refresh(self):
+        """트리 데이터 새로고침"""
+        self.model.clear()
+        conn = get_connection()
+
+        oems = OemModel.get_all(conn)
+        for oem in oems:
+            oem_item = QStandardItem(f"  {oem['name']}")
+            oem_font = QFont()
+            oem_font.setBold(True)
+            oem_font.setPointSize(13)
+            oem_item.setFont(oem_font)
+            oem_item.setData(("oem", oem["id"]), Qt.UserRole)
+            oem_item.setForeground(QColor("#3A3A3C"))
+
+            projects = ProjectModel.get_by_oem(oem["id"], conn)
+            for proj in projects:
+                proj_item = QStandardItem(f"  {proj['name']}")
+                proj_font = QFont()
+                proj_font.setPointSize(12)
+                proj_item.setFont(proj_font)
+                proj_item.setData(("project", proj["id"]), Qt.UserRole)
+                proj_item.setForeground(QColor("#1C1C1E"))
+
+                stages = StageModel.get_by_project(proj["id"], conn)
+                for stage in stages:
+                    swe = stage["swe_level"]
+                    status = stage["status"]
+                    color = STATUS_COLORS.get(status, "#8E8E93")
+
+                    # 상태 아이콘
+                    status_icon = "○"
+                    if status == StageStatus.COMPLETED:
+                        status_icon = "●"
+                    elif status == StageStatus.IN_PROGRESS:
+                        status_icon = "◐"
+                    elif status == StageStatus.IN_REVIEW:
+                        status_icon = "◑"
+
+                    stage_name = SWE_STAGES.get(swe, {}).get("name_ko", swe)
+                    stage_item = QStandardItem(f"  {status_icon} {swe}: {stage_name}")
+                    stage_item.setData(("stage", stage["id"]), Qt.UserRole)
+                    stage_item.setForeground(QColor(color))
+
+                    proj_item.appendRow(stage_item)
+
+                oem_item.appendRow(proj_item)
+
+            self.model.appendRow(oem_item)
+
+        conn.close()
+        self.tree.expandAll()
+
+    def _on_clicked(self, index):
+        item = self.model.itemFromIndex(index)
+        if item:
+            data = item.data(Qt.UserRole)
+            if data:
+                item_type, item_id = data
+                if item_type == "oem":
+                    self.oem_selected.emit(item_id)
+                elif item_type == "project":
+                    self.project_selected.emit(item_id)
+                elif item_type == "stage":
+                    self.stage_selected.emit(item_id)
+
+    def _context_menu(self, position):
+        index = self.tree.indexAt(position)
+        if not index.isValid():
+            return
+        item = self.model.itemFromIndex(index)
+        data = item.data(Qt.UserRole)
+        if not data:
+            return
+
+        menu = QMenu()
+        item_type, item_id = data
+
+        if item_type == "project":
+            menu.addAction("Open V-Model", lambda: self.project_selected.emit(item_id))
+            menu.addAction("Delete Project", lambda: self._delete_project(item_id))
+        elif item_type == "stage":
+            menu.addAction("View Details", lambda: self.stage_selected.emit(item_id))
+
+        menu.exec_(self.tree.viewport().mapToGlobal(position))
+
+    def _new_project(self):
+        from src.views.new_project_dialog import NewProjectDialog
+        dialog = NewProjectDialog(self.window())
+        if dialog.exec_():
+            self.refresh()
+
+    def _delete_project(self, project_id):
+        from PyQt5.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self, "Delete Project / 프로젝트 삭제",
+            "Are you sure you want to delete this project?\n이 프로젝트를 삭제하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            ProjectModel.delete(project_id)
+            self.refresh()

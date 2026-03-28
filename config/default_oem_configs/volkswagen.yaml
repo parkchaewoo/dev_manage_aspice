@@ -1,0 +1,191 @@
+oem_name: "Volkswagen Group (Volkswagen AG)"
+description: "Volkswagen Group ASPICE configuration. Aligned with VW group standards (KPM, KGAS, QTR), German/English naming conventions, and VW group-specific process requirements."
+
+stages:
+  SWE.1:
+    enabled: true
+    display_name: "Software Requirements Analysis"
+    display_name_ko: "소프트웨어 요구사항 분석"
+    required_documents:
+      - name: "Software-Anforderungsspezifikation / Software Requirements Specification (SW-LH)"
+        template_id: "SWE1_requirements_spec"
+        description: "Lastenheft (LH) for software requirements per VW group template. Derived from System-Lastenheft."
+      - name: "Anforderungs-Verfolgbarkeitsmatrix / Requirements Traceability Matrix"
+        template_id: "SWE1_traceability_matrix"
+        description: "Bidirectional traceability per VW KGAS (Komponentengesteuerte Absicherungsstrategie) requirements."
+      - name: "Anforderungsanalyse-Bericht / Requirements Analysis Report"
+        template_id: "SWE1_analysis_report"
+        description: "Analysis report documenting consistency, completeness, and testability of requirements."
+      - name: "KPM-Katalog / KPM Catalogue"
+        template_id: "SWE1_kpm_catalogue"
+        description: "Key Performance Metrics catalogue per VW group KPM standard."
+    checklist:
+      - "All System-Lastenheft items are allocated to SW-Lastenheft requirements"
+      - "Requirements follow VW group Lastenheft template structure"
+      - "KPM (Key Performance Metrics) are defined for critical functions"
+      - "Diagnostic requirements per VW ODX/OTX standards are specified"
+      - "Communication requirements per VW RLVN (Restbussimulation) are defined"
+      - "Requirements are reviewed per VW QTR (Quality Task Review) process"
+      - "ASIL classification per VW safety concept (Sicherheitskonzept) is assigned"
+      - "Requirements IDs follow VW group naming convention (Namenskonvention)"
+
+  SWE.2:
+    enabled: true
+    display_name: "Software Architectural Design"
+    display_name_ko: "소프트웨어 아키텍처 설계"
+    required_documents:
+      - name: "Software-Architektur-Beschreibung / Software Architecture Description (SAD)"
+        template_id: "SWE2_architecture_design"
+        description: "Architecture document per VW group template. Includes AUTOSAR architecture mapping for VW MEB/MQB platforms."
+      - name: "Schnittstellenbeschreibung / Interface Control Document"
+        template_id: "SWE2_interface_control"
+        description: "Interface specification per VW group Schnittstellenbeschreibung format."
+      - name: "Architektur-Bewertungsbericht / Architecture Evaluation Report"
+        template_id: "SWE2_evaluation_report"
+        description: "Evaluation against VW group architecture guidelines and platform constraints."
+    checklist:
+      - "Architecture follows VW group AUTOSAR platform standard (Plattform-Standard)"
+      - "Component partitioning aligns with VW group SWC conventions"
+      - "Architecture supports VW group variant management (Variantenmanagement)"
+      - "Schnittstellen (interfaces) are specified per VW CAN/LIN/FlexRay/Ethernet matrix"
+      - "Memory and CPU budgets fit VW group ECU platform constraints"
+      - "Fail-safe and degradation concepts per VW Sicherheitskonzept are designed"
+      - "Architecture review per VW QTR process is completed"
+      - "AUTOSAR BSW configuration matches VW group platform release"
+
+  SWE.3:
+    enabled: true
+    display_name: "Software Detailed Design and Unit Construction"
+    display_name_ko: "소프트웨어 상세 설계 및 유닛 구현"
+    required_documents:
+      - name: "Software-Feinentwurf / Software Detailed Design Document (SDD)"
+        template_id: "SWE3_detailed_design"
+        description: "Detailed design (Feinentwurf) per VW group template. Includes Simulink model documentation."
+      - name: "Kodierrichtlinien-Konformitätsbericht / Coding Guidelines Compliance Report"
+        template_id: "SWE3_coding_compliance"
+        description: "MISRA-C compliance and VW group-specific coding rule adherence report."
+      - name: "Statische-Analyse-Bericht / Static Analysis Report"
+        template_id: "SWE3_static_analysis"
+        description: "Static analysis results per VW group tool chain (QAC, Polyspace, Coverity)."
+    checklist:
+      - "Detailed design (Feinentwurf) follows VW group template and guidelines"
+      - "Simulink models comply with VW group MAAB modeling guidelines"
+      - "Code generation configuration matches VW group Embedded Coder settings"
+      - "MISRA-C:2012 compliance per VW group mandatory rule set is verified"
+      - "Static analysis tool chain per VW group standard is applied"
+      - "Code review (Code-Review) per VW group checklist is performed"
+      - "Naming conventions follow VW group Namenskonvention"
+      - "Calibration parameters per VW group KPM are identified and documented"
+
+  SWE.4:
+    enabled: true
+    display_name: "Software Unit Verification"
+    display_name_ko: "소프트웨어 유닛 검증"
+    required_documents:
+      - name: "Einzeltest-Plan / Unit Test Plan"
+        template_id: "SWE4_unit_test_plan"
+        description: "Unit test plan per VW group Einzeltest process definition."
+      - name: "Einzeltest-Bericht / Unit Test Report"
+        template_id: "SWE4_unit_test_report"
+        description: "Unit test report with coverage metrics per VW group quality gate criteria."
+      - name: "Einzeltest-Spezifikation / Unit Test Case Specification"
+        template_id: "SWE4_test_cases"
+        description: "Test case specification per VW group Einzeltest template."
+    checklist:
+      - "Unit test plan (Einzeltest-Plan) meets VW group coverage targets"
+      - "Statement coverage ≥ 80%, branch coverage ≥ 70% per VW group standard"
+      - "Safety-critical units achieve MC/DC per VW ASIL requirement"
+      - "Equivalence class and boundary value analysis per VW group method is applied"
+      - "Test environment matches VW group approved tool chain (Tessy, VectorCAST)"
+      - "Test results are recorded in VW group ALM tool"
+      - "Defects are tracked per VW group Fehlermanagement process"
+      - "Regression tests per VW group CI/CD pipeline are automated"
+
+  SWE.5:
+    enabled: true
+    display_name: "Software Integration and Integration Test"
+    display_name_ko: "소프트웨어 통합 및 통합 테스트"
+    required_documents:
+      - name: "Integrationstest-Plan / Integration Test Plan"
+        template_id: "SWE5_integration_test_plan"
+        description: "Integration test plan per VW group process including SIL/HIL strategy."
+      - name: "Integrationstest-Bericht / Integration Test Report"
+        template_id: "SWE5_integration_test_report"
+        description: "Integration test results per VW group KGAS milestones."
+      - name: "Integrations-Aufbauplan / Integration Build Plan"
+        template_id: "SWE5_build_plan"
+        description: "Incremental build and integration plan per VW group release cadence."
+    checklist:
+      - "Integration follows VW group Integrations-Aufbauplan"
+      - "CAN/LIN/FlexRay/Ethernet integration verified per VW Kommunikationsmatrix"
+      - "AUTOSAR RTE integration passes VW group platform test suite"
+      - "Diagnostic integration per VW ODX is verified"
+      - "SIL testing per VW group virtual validation strategy is performed"
+      - "HIL testing per VW group HIL test specification is performed"
+      - "Resource consumption after integration meets VW group ECU budget"
+      - "Integration test results per VW KGAS milestone criteria are recorded"
+
+  SWE.6:
+    enabled: true
+    display_name: "Software Qualification Test"
+    display_name_ko: "소프트웨어 적격성 테스트"
+    required_documents:
+      - name: "Qualifikationstest-Plan / Qualification Test Plan"
+        template_id: "SWE6_qualification_test_plan"
+        description: "Qualification plan per VW group Freigabe (release) criteria."
+      - name: "Qualifikationstest-Bericht / Qualification Test Report"
+        template_id: "SWE6_qualification_test_report"
+        description: "Qualification results per VW group Freigabe process."
+      - name: "Freigabemitteilung / Software Release Note"
+        template_id: "SWE6_release_note"
+        description: "Release note (Freigabemitteilung) per VW group standard including SW version and change history."
+    checklist:
+      - "All SW-Lastenheft requirements are covered by qualification tests"
+      - "Qualification test environment matches VW group target ECU platform"
+      - "Functional tests per VW group Pflichtenheft are passed"
+      - "Non-functional tests (performance, robustness) per VW KPM are passed"
+      - "Diagnostic qualification per VW ODX test specification is complete"
+      - "Communication qualification per VW Restbussimulation is passed"
+      - "VW group Freigabe criteria (release gate) checklist is fully satisfied"
+      - "Freigabemitteilung (release note) is approved by VW project lead"
+
+traceability_rules:
+  - source_stage: "SWE.1"
+    target_stage: "SWE.2"
+    link_type: "is_designed_by"
+    description: "SW-Lastenheft requirements traced to Architektur-Beschreibung elements per VW traceability standard."
+
+  - source_stage: "SWE.2"
+    target_stage: "SWE.3"
+    link_type: "is_detailed_by"
+    description: "Architecture components mapped to Feinentwurf modules per VW Namenskonvention."
+
+  - source_stage: "SWE.3"
+    target_stage: "SWE.4"
+    link_type: "is_verified_by"
+    description: "Each Feinentwurf unit verified by Einzeltest cases per VW coverage targets."
+
+  - source_stage: "SWE.2"
+    target_stage: "SWE.5"
+    link_type: "is_verified_by"
+    description: "Architecture interfaces verified by Integrationstest per VW KGAS milestones."
+
+  - source_stage: "SWE.1"
+    target_stage: "SWE.6"
+    link_type: "is_validated_by"
+    description: "All SW-Lastenheft requirements validated by Qualifikationstest per VW Freigabe process."
+
+  - source_stage: "SWE.6"
+    target_stage: "SWE.1"
+    link_type: "verifies"
+    description: "Qualifikationstest results confirm fulfillment of all SW-Lastenheft requirements."
+
+  - source_stage: "SWE.5"
+    target_stage: "SWE.2"
+    link_type: "verifies"
+    description: "Integrationstest results confirm correct interaction of Architektur components."
+
+  - source_stage: "SWE.4"
+    target_stage: "SWE.3"
+    link_type: "verifies"
+    description: "Einzeltest results confirm Feinentwurf unit correctness."

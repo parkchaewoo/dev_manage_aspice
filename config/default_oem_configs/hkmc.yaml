@@ -1,0 +1,191 @@
+oem_name: "HKMC (Hyundai Kia Motor Company / 현대기아자동차)"
+description: "HKMC-specific ASPICE configuration. Aligned with Hyundai-Kia development standards, Korean document naming conventions, and steering system ECU focus."
+
+stages:
+  SWE.1:
+    enabled: true
+    display_name: "Software Requirements Analysis"
+    display_name_ko: "소프트웨어 요구사항 분석"
+    required_documents:
+      - name: "Software Requirements Specification / 소프트웨어 요구사항 명세서 (SRS)"
+        template_id: "SWE1_requirements_spec"
+        description: "HKMC format SRS. Includes steering torque, angle sensor, and EPS control requirements. HKMC 양식에 따른 SRS. 조향 토크, 각도 센서 및 EPS 제어 요구사항 포함."
+      - name: "Requirements Traceability Matrix / 요구사항 추적 매트릭스"
+        template_id: "SWE1_traceability_matrix"
+        description: "Bidirectional trace from HKMC system spec (시스템 사양서) to software requirements."
+      - name: "Requirements Review Record / 요구사항 검토 기록서"
+        template_id: "SWE1_review_record"
+        description: "Formal review records per HKMC quality gate process (품질 게이트 프로세스)."
+      - name: "HKMC Requirement Change Request / 현대기아 요구사항 변경 요청서"
+        template_id: "SWE1_hkmc_change_request"
+        description: "Change request form following HKMC ECR/ECN process."
+    checklist:
+      - "All HKMC system specification items (시스템 사양 항목) are traced to SW requirements"
+      - "Steering system functional requirements include torque assist curves and fail-safe modes"
+      - "EPS diagnostic requirements (진단 요구사항) per HKMC DTC specification are included"
+      - "CAN/LIN communication matrix requirements align with HKMC signal database"
+      - "Safety requirements (ASIL rating) per HKMC safety concept are identified"
+      - "Requirements are reviewed using HKMC quality gate checklist (품질 게이트 체크리스트)"
+      - "Korean and English requirement IDs follow HKMC naming convention (명명 규칙)"
+      - "Response time requirements for steering assist are quantified (e.g., < 10ms)"
+
+  SWE.2:
+    enabled: true
+    display_name: "Software Architectural Design"
+    display_name_ko: "소프트웨어 아키텍처 설계"
+    required_documents:
+      - name: "Software Architecture Description / 소프트웨어 아키텍처 설계서 (SAD)"
+        template_id: "SWE2_architecture_design"
+        description: "Architecture for EPS/MDPS software. Includes AUTOSAR layer mapping per HKMC platform standard."
+      - name: "Interface Specification / 인터페이스 사양서"
+        template_id: "SWE2_interface_spec"
+        description: "Internal and external interfaces including HKMC CAN DB and LIN protocol definitions."
+      - name: "Resource Budget Report / 리소스 예산 보고서"
+        template_id: "SWE2_resource_budget"
+        description: "CPU, RAM, ROM budget allocation per HKMC MCU platform constraints."
+    checklist:
+      - "Architecture follows HKMC AUTOSAR platform standard (플랫폼 표준)"
+      - "Steering control algorithm modules are clearly separated from BSW"
+      - "MDPS/C-MDPS/R-MDPS variant handling architecture is defined"
+      - "Fail-safe architecture for steering assist loss is specified"
+      - "Memory partitioning meets HKMC safety requirements (안전 요구사항)"
+      - "CAN/LIN interface layers follow HKMC communication architecture"
+      - "Architecture review (아키텍처 리뷰) is conducted per HKMC process"
+      - "Resource budgets meet HKMC MCU platform limits"
+
+  SWE.3:
+    enabled: true
+    display_name: "Software Detailed Design and Unit Construction"
+    display_name_ko: "소프트웨어 상세 설계 및 유닛 구현"
+    required_documents:
+      - name: "Software Detailed Design Document / 소프트웨어 상세 설계서 (SDD)"
+        template_id: "SWE3_detailed_design"
+        description: "Detailed design per HKMC template. Includes control algorithm detail for EPS torque/angle control."
+      - name: "Coding Standard Compliance Report / 코딩 표준 준수 보고서"
+        template_id: "SWE3_coding_compliance"
+        description: "MISRA-C compliance report. HKMC mandatory rules plus project-specific rules."
+      - name: "Static Analysis Report / 정적 분석 보고서"
+        template_id: "SWE3_static_analysis"
+        description: "QAC/Polyspace results per HKMC static analysis criteria."
+    checklist:
+      - "Detailed design follows HKMC modeling/coding guidelines (모델링/코딩 가이드라인)"
+      - "Steering control algorithm parameters are documented with calibration ranges"
+      - "MISRA-C:2012 mandatory and required rules compliance is verified"
+      - "Model-based design (Simulink) units match code generation output"
+      - "NVM data handling for steering calibration values is specified"
+      - "Static analysis findings are resolved per HKMC severity criteria"
+      - "Code review (코드 리뷰) records follow HKMC checklist"
+      - "Unit naming follows HKMC module naming convention"
+
+  SWE.4:
+    enabled: true
+    display_name: "Software Unit Verification"
+    display_name_ko: "소프트웨어 유닛 검증"
+    required_documents:
+      - name: "Unit Test Plan / 유닛 테스트 계획서"
+        template_id: "SWE4_unit_test_plan"
+        description: "Test plan per HKMC unit test standard. Coverage targets per HKMC quality gate."
+      - name: "Unit Test Report / 유닛 테스트 보고서"
+        template_id: "SWE4_unit_test_report"
+        description: "Test execution results with MC/DC coverage for safety-critical steering modules."
+      - name: "Unit Test Case Specification / 유닛 테스트 케이스 명세서"
+        template_id: "SWE4_test_cases"
+        description: "Test cases including steering-specific boundary conditions and fault injection."
+    checklist:
+      - "Unit test plan meets HKMC coverage criteria (커버리지 기준): statement ≥ 80%, branch ≥ 70%"
+      - "Safety-critical steering units achieve MC/DC coverage per HKMC ASIL requirement"
+      - "Torque control algorithm boundary conditions are tested"
+      - "Fault injection tests for sensor failure modes are included"
+      - "Test environment (테스트 환경) matches HKMC approved tool chain"
+      - "All HKMC mandatory test categories (필수 테스트 카테고리) are covered"
+      - "Defects are logged in HKMC defect tracking system"
+      - "Regression test suite is maintained for steering algorithm changes"
+
+  SWE.5:
+    enabled: true
+    display_name: "Software Integration and Integration Test"
+    display_name_ko: "소프트웨어 통합 및 통합 테스트"
+    required_documents:
+      - name: "Integration Test Plan / 통합 테스트 계획서"
+        template_id: "SWE5_integration_test_plan"
+        description: "Integration test strategy for EPS software stack including BSW and ASW layers."
+      - name: "Integration Test Report / 통합 테스트 보고서"
+        template_id: "SWE5_integration_test_report"
+        description: "Results of SIL/HIL integration testing per HKMC integration criteria."
+      - name: "Integration Build Report / 통합 빌드 보고서"
+        template_id: "SWE5_build_report"
+        description: "Build log and integration sequence per HKMC CI/CD pipeline."
+    checklist:
+      - "Integration follows HKMC build sequence (빌드 순서) for AUTOSAR stack"
+      - "CAN/LIN message integration is verified against HKMC signal database"
+      - "Steering control + diagnostics integration is tested on HIL"
+      - "AUTOSAR RTE and BSW integration passes HKMC platform test suite"
+      - "Inter-module data flow for torque calculation chain is verified"
+      - "Integration test results are recorded in HKMC test management tool"
+      - "Memory map after integration fits HKMC MCU resource limits"
+      - "Regression integration tests pass after each build increment"
+
+  SWE.6:
+    enabled: true
+    display_name: "Software Qualification Test"
+    display_name_ko: "소프트웨어 적격성 테스트"
+    required_documents:
+      - name: "Qualification Test Plan / 적격성 테스트 계획서"
+        template_id: "SWE6_qualification_test_plan"
+        description: "Qualification test plan per HKMC SW release gate criteria."
+      - name: "Qualification Test Report / 적격성 테스트 보고서"
+        template_id: "SWE6_qualification_test_report"
+        description: "Full qualification results including HKMC acceptance criteria for steering ECU."
+      - name: "Software Release Note / 소프트웨어 릴리스 노트"
+        template_id: "SWE6_release_note"
+        description: "Release note per HKMC format including version, changes, known issues, DTC coverage."
+    checklist:
+      - "All HKMC SW requirements (소프트웨어 요구사항) are covered by qualification tests"
+      - "Steering system functional tests pass on target ECU hardware"
+      - "Diagnostic (진단) qualification per HKMC DTC specification is complete"
+      - "CAN communication qualification per HKMC network test spec is passed"
+      - "Performance requirements (response time, CPU load) are verified on target"
+      - "HKMC release gate (릴리스 게이트) criteria checklist is fully satisfied"
+      - "Known issues are documented and accepted by HKMC project manager"
+      - "Software version follows HKMC versioning standard (버전 관리 표준)"
+
+traceability_rules:
+  - source_stage: "SWE.1"
+    target_stage: "SWE.2"
+    link_type: "is_designed_by"
+    description: "HKMC system specification items traced through SRS to architecture elements. 시스템 사양 항목이 SRS를 통해 아키텍처 요소로 추적됨."
+
+  - source_stage: "SWE.2"
+    target_stage: "SWE.3"
+    link_type: "is_detailed_by"
+    description: "Architecture components mapped to detailed design modules per HKMC naming convention."
+
+  - source_stage: "SWE.3"
+    target_stage: "SWE.4"
+    link_type: "is_verified_by"
+    description: "Each detailed design unit has corresponding unit test cases with HKMC coverage targets."
+
+  - source_stage: "SWE.2"
+    target_stage: "SWE.5"
+    link_type: "is_verified_by"
+    description: "Architecture interfaces verified by integration tests on HKMC HIL bench."
+
+  - source_stage: "SWE.1"
+    target_stage: "SWE.6"
+    link_type: "is_validated_by"
+    description: "All SRS requirements validated by qualification tests per HKMC release gate. 모든 SRS 요구사항이 HKMC 릴리스 게이트에 따라 적격성 테스트로 검증됨."
+
+  - source_stage: "SWE.6"
+    target_stage: "SWE.1"
+    link_type: "verifies"
+    description: "Qualification test results confirm fulfillment of all HKMC software requirements."
+
+  - source_stage: "SWE.5"
+    target_stage: "SWE.2"
+    link_type: "verifies"
+    description: "Integration test results confirm correct interaction of architectural components."
+
+  - source_stage: "SWE.4"
+    target_stage: "SWE.3"
+    link_type: "verifies"
+    description: "Unit test results confirm detailed design correctness for steering control modules."

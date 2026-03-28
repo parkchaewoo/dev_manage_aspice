@@ -1,0 +1,191 @@
+oem_name: "General Motors (GM)"
+description: "GM-specific ASPICE configuration. Aligned with GM Global Product Development Process (GPDP), GM Global Requirements, and GM-specific quality standards."
+
+stages:
+  SWE.1:
+    enabled: true
+    display_name: "Software Requirements Analysis"
+    display_name_ko: "소프트웨어 요구사항 분석"
+    required_documents:
+      - name: "Software Requirements Specification (SRS)"
+        template_id: "SWE1_requirements_spec"
+        description: "SRS per GM Global SRS template. Derived from GM CTQ (Critical to Quality) and system-level TRS."
+      - name: "Requirements Traceability Matrix"
+        template_id: "SWE1_traceability_matrix"
+        description: "Bidirectional traceability from GM TRS (Technical Requirements Specification) to SRS."
+      - name: "Requirements Analysis Report"
+        template_id: "SWE1_analysis_report"
+        description: "Analysis results per GM Global review process including CTQ alignment."
+      - name: "GM SSTS Compliance Matrix"
+        template_id: "SWE1_ssts_compliance"
+        description: "Compliance matrix against GM SSTS (Subsystem Technical Specification)."
+    checklist:
+      - "All GM TRS/SSTS items are allocated to software requirements"
+      - "Requirements follow GM Global SRS template and numbering convention"
+      - "CTQ (Critical to Quality) characteristics are identified and flagged"
+      - "Diagnostic requirements per GM GDS (Global Diagnostic Specification) are included"
+      - "Communication requirements per GM GMLAN/GMLANplus specification are defined"
+      - "Safety requirements per GM ASIL classification and safety plan are identified"
+      - "Requirements are reviewed per GM Global PPAP (Production Part Approval Process) gates"
+      - "GM Global Change Management process (PRTS) is followed for requirement changes"
+
+  SWE.2:
+    enabled: true
+    display_name: "Software Architectural Design"
+    display_name_ko: "소프트웨어 아키텍처 설계"
+    required_documents:
+      - name: "Software Architecture Description (SAD)"
+        template_id: "SWE2_architecture_design"
+        description: "Architecture per GM Global Electrical Architecture (GEA) and AUTOSAR platform guidelines."
+      - name: "Interface Control Document (ICD)"
+        template_id: "SWE2_interface_control"
+        description: "Interface specification per GM GMLAN signal database and Ethernet service definitions."
+      - name: "Architecture DFMEA Contribution"
+        template_id: "SWE2_dfmea"
+        description: "Software architecture contribution to GM Global DFMEA per GM-1927 standard."
+    checklist:
+      - "Architecture aligns with GM Global Electrical Architecture (GEA) platform"
+      - "AUTOSAR software component partitioning follows GM platform standard"
+      - "Architecture supports GM Global vehicle variant management"
+      - "GMLAN/CAN-FD/Ethernet interfaces are specified per GM signal database"
+      - "Memory and CPU budgets fit GM ECU platform resource allocation"
+      - "Fail-safe and limp-home strategies per GM safety concept are designed"
+      - "Architecture contributes to GM DFMEA per GM-1927 standard"
+      - "Architecture review per GM Global design review checklist is completed"
+
+  SWE.3:
+    enabled: true
+    display_name: "Software Detailed Design and Unit Construction"
+    display_name_ko: "소프트웨어 상세 설계 및 유닛 구현"
+    required_documents:
+      - name: "Software Detailed Design Document (SDD)"
+        template_id: "SWE3_detailed_design"
+        description: "Detailed design per GM Global template. Includes control algorithm and calibration parameter documentation."
+      - name: "Coding Standard Compliance Report"
+        template_id: "SWE3_coding_compliance"
+        description: "MISRA-C compliance plus GM-specific coding rules adherence report."
+      - name: "Static Analysis Report"
+        template_id: "SWE3_static_analysis"
+        description: "Static analysis results per GM approved tool set."
+    checklist:
+      - "Detailed design follows GM Global SDD template"
+      - "Model-based design follows GM MAAB subset and modeling guidelines"
+      - "Calibration parameters per GM Global calibration process are identified"
+      - "MISRA-C:2012 compliance per GM mandatory rule set is verified"
+      - "GM-specific coding rules (stack usage, interrupt handling) are followed"
+      - "Static analysis per GM approved tool chain is completed with no critical findings"
+      - "Code review per GM Global peer review checklist is performed"
+      - "GM Global naming and file structure conventions are followed"
+
+  SWE.4:
+    enabled: true
+    display_name: "Software Unit Verification"
+    display_name_ko: "소프트웨어 유닛 검증"
+    required_documents:
+      - name: "Unit Test Plan"
+        template_id: "SWE4_unit_test_plan"
+        description: "Unit test plan per GM Global unit verification standard."
+      - name: "Unit Test Report"
+        template_id: "SWE4_unit_test_report"
+        description: "Unit test results with coverage metrics per GM quality gate criteria."
+      - name: "Unit Test Case Specification"
+        template_id: "SWE4_test_cases"
+        description: "Test cases per GM Global unit test methodology including CTQ-critical paths."
+    checklist:
+      - "Unit test plan meets GM Global coverage targets: statement ≥ 80%, branch ≥ 75%"
+      - "CTQ-critical units achieve MC/DC coverage per GM safety requirements"
+      - "Equivalence partitioning and boundary analysis per GM methodology are applied"
+      - "Fault injection tests for GM-defined failure modes are included"
+      - "Test environment uses GM approved tool chain (VectorCAST, Tessy, or equivalent)"
+      - "Test results are recorded in GM Global ALM/PLM system"
+      - "Defects are tracked per GM Global defect management process"
+      - "Regression test suite covers GM-identified critical calibration paths"
+
+  SWE.5:
+    enabled: true
+    display_name: "Software Integration and Integration Test"
+    display_name_ko: "소프트웨어 통합 및 통합 테스트"
+    required_documents:
+      - name: "Integration Test Plan"
+        template_id: "SWE5_integration_test_plan"
+        description: "Integration test strategy per GM Global integration process including SIL/PIL/HIL stages."
+      - name: "Integration Test Report"
+        template_id: "SWE5_integration_test_report"
+        description: "Integration test results per GM GPDP milestone criteria."
+      - name: "Integration Build Plan"
+        template_id: "SWE5_build_plan"
+        description: "Build and integration sequence per GM Global CI/CD and release cadence."
+    checklist:
+      - "Integration follows GM Global incremental build strategy"
+      - "GMLAN/CAN-FD/Ethernet message integration verified per GM signal database"
+      - "AUTOSAR RTE and BSW integration passes GM platform validation suite"
+      - "Diagnostic service integration per GM GDS specification is verified"
+      - "SIL/PIL testing per GM Global virtual validation strategy is performed"
+      - "HIL testing per GM Global HIL test specification is performed"
+      - "Resource consumption after integration meets GM ECU platform budget"
+      - "Integration test results per GM GPDP milestone criteria are recorded"
+
+  SWE.6:
+    enabled: true
+    display_name: "Software Qualification Test"
+    display_name_ko: "소프트웨어 적격성 테스트"
+    required_documents:
+      - name: "Qualification Test Plan"
+        template_id: "SWE6_qualification_test_plan"
+        description: "Qualification plan per GM PPAP and GPDP release criteria."
+      - name: "Qualification Test Report"
+        template_id: "SWE6_qualification_test_report"
+        description: "Qualification results per GM Global release gate acceptance criteria."
+      - name: "Software Release Note"
+        template_id: "SWE6_release_note"
+        description: "Release note per GM Global template including version, ECU part number, and change summary."
+    checklist:
+      - "All SRS requirements are covered by qualification test cases"
+      - "Qualification test environment matches GM target ECU hardware and vehicle network"
+      - "Functional qualification per GM SSTS acceptance criteria is passed"
+      - "Non-functional qualification (performance, durability) per GM KPI targets is passed"
+      - "Diagnostic qualification per GM GDS specification is complete"
+      - "Communication qualification per GM GMLAN conformance test is passed"
+      - "GM PPAP/GPDP release gate criteria checklist is fully satisfied"
+      - "Release note is approved per GM Global software release process"
+
+traceability_rules:
+  - source_stage: "SWE.1"
+    target_stage: "SWE.2"
+    link_type: "is_designed_by"
+    description: "SRS requirements traced to architecture elements per GM Global traceability standard."
+
+  - source_stage: "SWE.2"
+    target_stage: "SWE.3"
+    link_type: "is_detailed_by"
+    description: "Architecture components mapped to detailed design modules per GM naming convention."
+
+  - source_stage: "SWE.3"
+    target_stage: "SWE.4"
+    link_type: "is_verified_by"
+    description: "Each detailed design unit verified by unit test cases per GM coverage targets."
+
+  - source_stage: "SWE.2"
+    target_stage: "SWE.5"
+    link_type: "is_verified_by"
+    description: "Architecture interfaces verified by integration tests per GM GPDP milestones."
+
+  - source_stage: "SWE.1"
+    target_stage: "SWE.6"
+    link_type: "is_validated_by"
+    description: "All SRS requirements validated by qualification tests per GM PPAP release criteria."
+
+  - source_stage: "SWE.6"
+    target_stage: "SWE.1"
+    link_type: "verifies"
+    description: "Qualification test results confirm fulfillment of all GM software requirements."
+
+  - source_stage: "SWE.5"
+    target_stage: "SWE.2"
+    link_type: "verifies"
+    description: "Integration test results confirm correct interaction of architectural components."
+
+  - source_stage: "SWE.4"
+    target_stage: "SWE.3"
+    link_type: "verifies"
+    description: "Unit test results confirm detailed design unit correctness."
