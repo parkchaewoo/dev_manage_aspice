@@ -228,9 +228,10 @@ class DocumentEditorWidget(QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setWordWrap(True)
         self.table.setStyleSheet("""
             QTableWidget { border:1px solid #E5E5EA; border-radius:8px; font-size:13px; }
-            QTableWidget::item { padding:4px 8px; }
+            QTableWidget::item { padding:6px 10px; }
             QTableWidget::item:selected { background:#007AFF; color:white; }
         """)
         self.table.cellChanged.connect(self._on_cell_changed)
@@ -355,6 +356,9 @@ class DocumentEditorWidget(QWidget):
             del_btn.clicked.connect(lambda _, row=r: self._delete_item(row))
             self.table.setCellWidget(r, len(cols) - 1, del_btn)
 
+        # 행 높이 조절 (내용에 맞게)
+        for r in range(len(self._items)):
+            self.table.setRowHeight(r, 40)
         self.count_label.setText(f"{len(self._items)} items")
         self.table.blockSignals(False)
 
