@@ -1,4 +1,5 @@
-"""추적성 상세 뷰 - 문서 레벨 다대다 연결 (드래그 앤 드롭 지원)"""
+"""추적성 상세 뷰 - 문서 레벨 다대다 연결 (드래그 앤 드롭 지원) + 항목 레벨 추적성"""
+import json
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QGraphicsView, QGraphicsScene, QGraphicsRectItem,
@@ -201,10 +202,11 @@ class TraceabilityDetailDialog(QDialog):
         for i, doc in enumerate(docs_1):
             y = y_start + i * y_gap
             is_linked = doc["id"] in linked_source_ids or doc["id"] in linked_target_ids
+            item_count = self._get_item_count(doc)
             card = self._draw_doc_card(
                 left_x, y, card_w, card_h,
                 doc["name"], doc["status"], is_linked,
-                doc_id=doc["id"], side="left"
+                doc_id=doc["id"], side="left", item_count=item_count
             )
             left_cards[doc["id"]] = (left_x + card_w, y + card_h / 2)
 
@@ -213,10 +215,11 @@ class TraceabilityDetailDialog(QDialog):
         for i, doc in enumerate(docs_2):
             y = y_start + i * y_gap
             is_linked = doc["id"] in linked_source_ids or doc["id"] in linked_target_ids
+            item_count = self._get_item_count(doc)
             card = self._draw_doc_card(
                 right_x, y, card_w, card_h,
                 doc["name"], doc["status"], is_linked,
-                doc_id=doc["id"], side="right"
+                doc_id=doc["id"], side="right", item_count=item_count
             )
             right_cards[doc["id"]] = (right_x, y + card_h / 2)
 
@@ -235,17 +238,37 @@ class TraceabilityDetailDialog(QDialog):
                 pen = QPen(QColor(color), 2)
                 self.scene.addLine(src_pos[0], src_pos[1], dst_pos[0], dst_pos[1], pen)
 
-                # 링크 유형 라벨
+                # 링크 유형 라벨 + item IDs
                 mid_x = (src_pos[0] + dst_pos[0]) / 2
                 mid_y = (src_pos[1] + dst_pos[1]) / 2
-                label = self.scene.addText(link["link_type"], QFont("sans-serif", 7))
+                src_item = link["source_item_id"] if link["source_item_id"] else ""
+                tgt_item = link["target_item_id"] if link["target_item_id"] else ""
+                if src_item and tgt_item:
+                    label_text = f"{src_item} \u2192 {tgt_item}"
+                elif src_item or tgt_item:
+                    label_text = f"{link['link_type']} ({src_item or tgt_item})"
+                else:
+                    label_text = link["link_type"]
+                label = self.scene.addText(label_text, QFont("sans-serif", 7))
                 label.setDefaultTextColor(QColor(color))
                 label.setPos(mid_x - 15, mid_y - 10)
 
         conn.close()
         self.view.fitInView(self.scene.sceneRect().adjusted(-20, -20, 20, 20), Qt.KeepAspectRatio)
 
-    def _draw_doc_card(self, x, y, w, h, name, status, is_linked, doc_id=None, side="left"):
+    def _get_item_count(self, doc):
+        """Get item count from document's JSON content."""
+        try:
+            content = doc["content"] if doc["content"] else ""
+            if content:
+                items = json.loads(content)
+                if isinstance(items, list):
+                    return len(items)
+        except (json.JSONDecodeError, TypeError, KeyError):
+            pass
+        return 0
+
+    def _draw_doc_card(self, x, y, w, h, name, status, is_linked, doc_id=None, side="left", item_count=0):
         """문서 카드 그리기 - 드래그 가능한 DraggableDocCard 사용"""
         color = STATUS_COLORS.get(status, "#8E8E93")
         border_color = color if is_linked else "#FF3B30"
@@ -264,7 +287,10 @@ class TraceabilityDetailDialog(QDialog):
         else:
             rect = self.scene.addRect(QRectF(x, y, w, h), pen, brush)
 
-        name_text = self.scene.addText(name, QFont("sans-serif", 8))
+        display_name = name
+        if item_count > 0:
+            display_name = f"{name} ({item_count} items)"
+        name_text = self.scene.addText(display_name, QFont("sans-serif", 8))
         name_text.setDefaultTextColor(QColor("#1C1C1E"))
         name_text.setPos(x + 8, y + 4)
         name_text.setTextWidth(w - 16)
@@ -274,7 +300,7 @@ class TraceabilityDetailDialog(QDialog):
         status_text.setPos(x + 8, y + h - 18)
 
         if not is_linked:
-            warn = self.scene.addText("⚠ No trace", QFont("sans-serif", 7))
+            warn = self.scene.addText("\u26A0 No trace", QFont("sans-serif", 7))
             warn.setDefaultTextColor(QColor("#FF3B30"))
             warn.setPos(x + w - 65, y + h - 18)
 

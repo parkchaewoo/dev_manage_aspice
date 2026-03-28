@@ -302,6 +302,7 @@ def _build_report(project_id, phase_id, output_path, conn):
         _html_head(project["name"], version),
         _html_cover(project["name"], oem_name, phase_name, gen_date, version),
         _html_executive_summary(overall_pct, total_docs, total_approved, total_pending, total_missing),
+        _html_vmodel_overview(stage_data),
         _html_swe_analysis(stage_data),
         _html_vmodel_traceability(vmodel_data, sequential_data),
         _html_gap_analysis(gaps),
@@ -527,6 +528,140 @@ def _render_content_preview(content, swe_key):
     return (f'<pre style="background:#f9f9fb;padding:10px;border-radius:6px;'
             f'font-size:12px;white-space:pre-wrap;max-height:200px;overflow:auto">'
             f'{_esc(preview)}{"..." if len(content) > 500 else ""}</pre>')
+
+
+def _svg_vmodel(stage_data):
+    """Generate an inline SVG V-Model diagram (600x300px)."""
+    import math
+    positions = {
+        "SWE.1": (30, 30),
+        "SWE.6": (430, 30),
+        "SWE.2": (110, 130),
+        "SWE.5": (350, 130),
+        "SWE.3": (190, 230),
+        "SWE.4": (270, 230),
+    }
+    box_w, box_h = 120, 50
+
+    status_colors = {
+        "Completed": "#34C759",
+        "In Progress": "#007AFF",
+        "In Review": "#FF9500",
+        "Not Started": "#8E8E93",
+    }
+
+    svg_parts = [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" '
+        'width="600" height="300" style="font-family:sans-serif;">'
+    ]
+
+    # Dashed lines for V-model pairs (SWE.1<->6, SWE.2<->5, SWE.3<->4)
+    vmodel_pairs = [("SWE.1", "SWE.6"), ("SWE.2", "SWE.5"), ("SWE.3", "SWE.4")]
+    for left, right in vmodel_pairs:
+        lx, ly = positions[left]
+        rx, ry = positions[right]
+        svg_parts.append(
+            f'<line x1="{lx + box_w}" y1="{ly + box_h // 2}" '
+            f'x2="{rx}" y2="{ry + box_h // 2}" '
+            f'stroke="#8E8E93" stroke-width="1.5" stroke-dasharray="6,4" />'
+        )
+
+    # Solid arrows for sequential flow (SWE.1->2->3 and SWE.4->5->6)
+    seq_flow = [("SWE.1", "SWE.2"), ("SWE.2", "SWE.3"), ("SWE.3", "SWE.4"),
+                ("SWE.4", "SWE.5"), ("SWE.5", "SWE.6")]
+    for src, dst in seq_flow:
+        sx, sy = positions[src]
+        dx, dy = positions[dst]
+        # Connect bottom-center of src to top-center of dst (for vertical flow)
+        # or right-center to left-center for horizontal
+        if sy < dy:
+            # Going down
+            x1, y1 = sx + box_w // 2, sy + box_h
+            x2, y2 = dx + box_w // 2, dy
+        elif sy > dy:
+            # Going up
+            x1, y1 = sx + box_w // 2, sy
+            x2, y2 = dx + box_w // 2, dy + box_h
+        else:
+            # Same level (SWE.3 -> SWE.4)
+            x1, y1 = sx + box_w, sy + box_h // 2
+            x2, y2 = dx, dy + box_h // 2
+
+        svg_parts.append(
+            f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
+            f'stroke="#636366" stroke-width="1.5" />'
+        )
+        # Arrowhead
+        angle = math.atan2(y2 - y1, x2 - x1)
+        arr_len = 8
+        ax1 = x2 - arr_len * math.cos(angle - 0.4)
+        ay1 = y2 - arr_len * math.sin(angle - 0.4)
+        ax2 = x2 - arr_len * math.cos(angle + 0.4)
+        ay2 = y2 - arr_len * math.sin(angle + 0.4)
+        svg_parts.append(
+            f'<polygon points="{x2},{y2} {ax1:.1f},{ay1:.1f} {ax2:.1f},{ay2:.1f}" '
+            f'fill="#636366" />'
+        )
+
+    # Draw boxes for each SWE stage
+    for swe_key, (bx, by) in positions.items():
+        sd = stage_data.get(swe_key)
+        if sd is not None:
+            status = sd["stage"]["status"]
+        else:
+            status = "Not Started"
+        fill_color = status_colors.get(status, "#8E8E93")
+
+        svg_parts.append(
+            f'<rect x="{bx}" y="{by}" width="{box_w}" height="{box_h}" rx="6" ry="6" '
+            f'fill="{fill_color}" opacity="0.9" />'
+        )
+        # Stage label
+        label = swe_key
+        svg_parts.append(
+            f'<text x="{bx + box_w // 2}" y="{by + 22}" text-anchor="middle" '
+            f'fill="#fff" font-size="13" font-weight="bold">{_esc(label)}</text>'
+        )
+        # Status label
+        svg_parts.append(
+            f'<text x="{bx + box_w // 2}" y="{by + 39}" text-anchor="middle" '
+            f'fill="#fff" font-size="10" opacity="0.9">{_esc(status)}</text>'
+        )
+
+    # Legend
+    legend_y = 5
+    for i, (label, color) in enumerate([
+        ("Completed", "#34C759"), ("In Progress", "#007AFF"),
+        ("In Review", "#FF9500"), ("Not Started", "#8E8E93")
+    ]):
+        lx = 10 + i * 140
+        svg_parts.append(
+            f'<rect x="{lx}" y="{legend_y}" width="10" height="10" rx="2" fill="{color}" />'
+        )
+        svg_parts.append(
+            f'<text x="{lx + 14}" y="{legend_y + 9}" fill="#6e6e73" font-size="9">{label}</text>'
+        )
+
+    svg_parts.append('</svg>')
+    return '\n'.join(svg_parts)
+
+
+def _html_vmodel_overview(stage_data):
+    """Generate V-Model Overview section with inline SVG diagram."""
+    svg = _svg_vmodel(stage_data)
+    return f"""
+<!-- V-Model Overview / V-모델 개요 -->
+<div class="section">
+<h2>V-Model Overview / V-모델 개요</h2>
+<div style="text-align:center;margin:16px 0;background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+{svg}
+</div>
+<p style="color:#6e6e73;font-size:13px;text-align:center">
+    Dashed lines: V-Model verification pairs / 점선: V-모델 검증 쌍 &nbsp;|&nbsp;
+    Solid arrows: Sequential flow / 실선 화살표: 순차적 흐름
+</p>
+</div>
+"""
 
 
 def _html_swe_analysis(stage_data):

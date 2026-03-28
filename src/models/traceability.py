@@ -5,15 +5,17 @@ from src.models.database import get_connection
 class TraceabilityModel:
     @staticmethod
     def create(source_document_id, target_document_id, link_type="derives",
-               description="", conn=None):
+               description="", source_item_id="", target_item_id="", conn=None):
         should_close = conn is None
         if conn is None:
             conn = get_connection()
         cursor = conn.execute(
             """INSERT INTO traceability_links
-               (source_document_id, target_document_id, link_type, description)
-               VALUES (?, ?, ?, ?)""",
-            (source_document_id, target_document_id, link_type, description)
+               (source_document_id, target_document_id, link_type, description,
+                source_item_id, target_item_id)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (source_document_id, target_document_id, link_type, description,
+             source_item_id, target_item_id)
         )
         conn.commit()
         lid = cursor.lastrowid
