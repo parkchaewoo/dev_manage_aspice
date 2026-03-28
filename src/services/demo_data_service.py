@@ -285,13 +285,25 @@ def _create_full_traceability(doc_ids, conn):
     if doc_ids.get("SWE.1") and doc_ids.get("SWE.2"):
         TraceabilityModel.create(
             doc_ids["SWE.1"][0], doc_ids["SWE.2"][0],
-            "derives", "요구사항에서 아키텍처 도출 / Requirements to Architecture", conn
+            "derives", "요구사항에서 아키텍처 도출 / Requirements to Architecture",
+            source_item_id="SWE1-REQ-001", target_item_id="SWE2-CMP-001", conn=conn
+        )
+        TraceabilityModel.create(
+            doc_ids["SWE.1"][0], doc_ids["SWE.2"][0],
+            "derives", "요구사항에서 아키텍처 도출 / Requirements to Architecture",
+            source_item_id="SWE1-REQ-002", target_item_id="SWE2-CMP-002", conn=conn
         )
     # SWE.2 → SWE.3
     if doc_ids.get("SWE.2") and doc_ids.get("SWE.3"):
         TraceabilityModel.create(
             doc_ids["SWE.2"][0], doc_ids["SWE.3"][0],
-            "derives", "아키텍처에서 상세설계 도출 / Architecture to Detailed Design", conn
+            "derives", "아키텍처에서 상세설계 도출 / Architecture to Detailed Design",
+            source_item_id="SWE2-CMP-001", target_item_id="SWE3-FUN-001", conn=conn
+        )
+        TraceabilityModel.create(
+            doc_ids["SWE.2"][0], doc_ids["SWE.3"][0],
+            "derives", "아키텍처에서 상세설계 도출 / Architecture to Detailed Design",
+            source_item_id="SWE2-CMP-002", target_item_id="SWE3-FUN-002", conn=conn
         )
 
     # === V-Model 추적성 (verifies: 좌↔우) ===
@@ -299,19 +311,37 @@ def _create_full_traceability(doc_ids, conn):
     if doc_ids.get("SWE.1") and doc_ids.get("SWE.6"):
         TraceabilityModel.create(
             doc_ids["SWE.1"][0], doc_ids["SWE.6"][0],
-            "verifies", "요구사항 적격성 시험 추적", conn
+            "verifies", "요구사항 적격성 시험 추적",
+            source_item_id="SWE1-REQ-001", target_item_id="SWE6-QT-001", conn=conn
+        )
+        TraceabilityModel.create(
+            doc_ids["SWE.1"][0], doc_ids["SWE.6"][0],
+            "verifies", "요구사항 적격성 시험 추적",
+            source_item_id="SWE1-REQ-002", target_item_id="SWE6-QT-002", conn=conn
         )
     # SWE.2 <-> SWE.5
     if doc_ids.get("SWE.2") and doc_ids.get("SWE.5"):
         TraceabilityModel.create(
             doc_ids["SWE.2"][0], doc_ids["SWE.5"][0],
-            "verifies", "아키텍처 통합 시험 추적", conn
+            "verifies", "아키텍처 통합 시험 추적",
+            source_item_id="SWE2-CMP-001", target_item_id="SWE5-IT-001", conn=conn
+        )
+        TraceabilityModel.create(
+            doc_ids["SWE.2"][0], doc_ids["SWE.5"][0],
+            "verifies", "아키텍처 통합 시험 추적",
+            source_item_id="SWE2-CMP-002", target_item_id="SWE5-IT-002", conn=conn
         )
     # SWE.3 <-> SWE.4
     if doc_ids.get("SWE.3") and doc_ids.get("SWE.4"):
         TraceabilityModel.create(
             doc_ids["SWE.3"][0], doc_ids["SWE.4"][0],
-            "verifies", "상세 설계 단위 검증 추적", conn
+            "verifies", "상세 설계 단위 검증 추적",
+            source_item_id="SWE3-FUN-001", target_item_id="SWE4-UT-001", conn=conn
+        )
+        TraceabilityModel.create(
+            doc_ids["SWE.3"][0], doc_ids["SWE.4"][0],
+            "verifies", "상세 설계 단위 검증 추적",
+            source_item_id="SWE3-FUN-002", target_item_id="SWE4-UT-002", conn=conn
         )
 
 

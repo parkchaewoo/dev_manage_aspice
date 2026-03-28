@@ -134,7 +134,7 @@ class TestModels(unittest.TestCase):
         doc1 = DocumentModel.create(stage1, "SRS", conn=self.conn)
         doc6 = DocumentModel.create(stage6, "QT Report", conn=self.conn)
 
-        link_id = TraceabilityModel.create(doc1, doc6, "verifies", "Test link", self.conn)
+        link_id = TraceabilityModel.create(doc1, doc6, "verifies", "Test link", conn=self.conn)
         self.assertIsNotNone(link_id)
 
         links = TraceabilityModel.get_by_document(doc1, self.conn)

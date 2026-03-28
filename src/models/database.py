@@ -119,6 +119,8 @@ def initialize_schema(conn=None):
             target_document_id INTEGER NOT NULL,
             link_type TEXT DEFAULT 'derives',
             description TEXT DEFAULT '',
+            source_item_id TEXT DEFAULT '',
+            target_item_id TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (source_document_id) REFERENCES documents(id) ON DELETE CASCADE,
             FOREIGN KEY (target_document_id) REFERENCES documents(id) ON DELETE CASCADE
@@ -217,6 +219,10 @@ def _run_migrations(conn):
          "ALTER TABLE checklist_items ADD COLUMN is_excluded INTEGER DEFAULT 0"),
         ("SELECT exclude_reason FROM checklist_items LIMIT 1",
          "ALTER TABLE checklist_items ADD COLUMN exclude_reason TEXT DEFAULT ''"),
+        ("SELECT source_item_id FROM traceability_links LIMIT 1",
+         "ALTER TABLE traceability_links ADD COLUMN source_item_id TEXT DEFAULT ''"),
+        ("SELECT target_item_id FROM traceability_links LIMIT 1",
+         "ALTER TABLE traceability_links ADD COLUMN target_item_id TEXT DEFAULT ''"),
     ]
     for check_sql, alter_sql in migrations:
         try:

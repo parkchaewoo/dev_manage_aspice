@@ -235,7 +235,39 @@ class DocumentEditorWidget(QWidget):
         """)
         self.table.cellChanged.connect(self._on_cell_changed)
         self.table.cellDoubleClicked.connect(self._on_double_click)
-        layout.addWidget(self.table, 1)
+        self.table.currentCellChanged.connect(self._on_row_changed)
+        layout.addWidget(self.table)
+
+        # 선택된 아이템의 상세 노트 영역 (노트앱 스타일)
+        self.notes_frame = QFrame()
+        self.notes_frame.setStyleSheet(
+            "QFrame { background:#FFFFFF; border:1px solid #E5E5EA; border-radius:8px; }"
+        )
+        notes_layout = QVBoxLayout(self.notes_frame)
+        notes_layout.setContentsMargins(12, 8, 12, 8)
+        notes_layout.setSpacing(4)
+
+        self.notes_title = QLabel("Notes / 상세 내용")
+        self.notes_title.setStyleSheet("font-weight:600; color:#3A3A3C; font-size:13px; border:none;")
+        notes_layout.addWidget(self.notes_title)
+
+        self.notes_edit = QTextEdit()
+        self.notes_edit.setPlaceholderText(
+            "Write detailed content here...\n"
+            "요구사항 상세 내용, 배경, 제약사항 등을 자유롭게 작성하세요.\n\n"
+            "Example:\n"
+            "- 조향각 센서는 SPI 인터페이스로 5ms 주기 읽기\n"
+            "- 유효 범위: ±720°, 분해능: 0.1°\n"
+            "- 센서 고장 시 최후 유효값을 3 cycle 유지"
+        )
+        self.notes_edit.setStyleSheet(
+            "QTextEdit { border:none; font-size:13px; line-height:1.6; background:transparent; }"
+        )
+        self.notes_edit.setMinimumHeight(120)
+        self.notes_edit.textChanged.connect(self._on_notes_changed)
+        notes_layout.addWidget(self.notes_edit)
+
+        layout.addWidget(self.notes_frame)
 
     def load_stage(self, stage_id, conn=None):
         self.stage_id = stage_id
@@ -276,6 +308,10 @@ class DocumentEditorWidget(QWidget):
         schema = _get_schema(self._swe_level)
         self.btn_add.setText(f"+ Add {schema['prefix']}")
         self._refresh_table()
+        self.notes_edit.blockSignals(True)
+        self.notes_edit.clear()
+        self.notes_title.setText("Notes / 상세 내용 — select an item")
+        self.notes_edit.blockSignals(False)
 
     def _refresh_table(self):
         self.table.blockSignals(True)
@@ -321,6 +357,32 @@ class DocumentEditorWidget(QWidget):
 
         self.count_label.setText(f"{len(self._items)} items")
         self.table.blockSignals(False)
+
+    def _on_row_changed(self, row, col, prev_row, prev_col):
+        """행 변경 시 노트 영역 업데이트"""
+        if row < 0 or row >= len(self._items):
+            self.notes_edit.blockSignals(True)
+            self.notes_edit.clear()
+            self.notes_title.setText("Notes / 상세 내용")
+            self.notes_edit.blockSignals(False)
+            return
+
+        item = self._items[row]
+        item_id = item.get("id", "")
+        self.notes_title.setText(f"Notes: {item_id}")
+        self.notes_edit.blockSignals(True)
+        self.notes_edit.setPlainText(item.get("notes", ""))
+        self.notes_edit.blockSignals(False)
+
+    def _on_notes_changed(self):
+        """노트 편집 시 아이템에 반영 + 자동 저장"""
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self._items):
+            return
+        self._items[row]["notes"] = self.notes_edit.toPlainText()
+        self.save_indicator.setText("Saving...")
+        self.save_indicator.setStyleSheet("color:#FF9500; font-size:11px;")
+        self._auto_save_timer.start()
 
     def _on_cell_changed(self, row, col):
         """셀 편집 시 자동 저장 (800ms 디바운스)"""
