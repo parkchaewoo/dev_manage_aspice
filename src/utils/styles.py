@@ -5,7 +5,7 @@ import os
 MAIN_STYLESHEET = """
 /* === Global === */
 QWidget {
-    font-family: -apple-system, "Segoe UI", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-family: "Segoe UI", "Helvetica Neue", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 14px;
     color: #1C1C1E;
     background-color: #F2F2F7;
@@ -418,7 +418,7 @@ QToolTip {
 DARK_STYLESHEET = """
 /* === Global === */
 QWidget {
-    font-family: -apple-system, "Segoe UI", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-family: "Segoe UI", "Helvetica Neue", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 14px;
     color: #F2F2F7;
     background-color: #1C1C1E;

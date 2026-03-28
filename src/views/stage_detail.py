@@ -1,7 +1,8 @@
 """SWE 단계 상세 뷰"""
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QTabWidget, QPushButton, QComboBox, QTextEdit, QScrollArea
+    QTabWidget, QPushButton, QComboBox, QTextEdit, QScrollArea,
+    QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
@@ -103,8 +104,7 @@ class StageDetailWidget(QWidget):
             "Date / 일자", "Type / 유형", "Participants / 참석자",
             "Result / 결과", "Findings / 지적사항", "Action Items / 조치항목"
         ])
-        from PyQt5.QtWidgets import QHeaderView as _HV
-        self.rr_table.horizontalHeader().setSectionResizeMode(_HV.Stretch)
+        self.rr_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.rr_table.verticalHeader().setVisible(False)
         rr_layout.addWidget(self.rr_table)
         self.tabs.addTab(review_records_widget, "Review Records / 리뷰 기록")
