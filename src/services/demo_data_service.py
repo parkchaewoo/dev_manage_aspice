@@ -25,6 +25,154 @@ def _load_oem_yaml(filename):
         return ""
 
 
+def _fill_demo_content(content, project_name, oem_name, swe_level):
+    """Replace ___ placeholders with realistic automotive sample data for demo projects."""
+    # Determine project type from project_name / oem_name
+    pname_lower = (project_name or "").lower()
+    oem_lower = (oem_name or "").lower()
+
+    if "steering" in pname_lower or "조향" in pname_lower or "hkmc" in oem_lower:
+        return _fill_steering_demo(content, swe_level)
+    elif "brake" in pname_lower or "브레이크" in pname_lower or "volkswagen" in oem_lower or "vw" in oem_lower:
+        return _fill_brake_demo(content, swe_level)
+    elif "navi" in pname_lower or "네비" in pname_lower or "gm" in oem_lower:
+        return _fill_navigation_demo(content, swe_level)
+    return content
+
+
+def _fill_steering_demo(content, swe_level):
+    """Fill ___ with HKMC EPS steering system sample data."""
+    replacements = {
+        "SWE.1": [
+            ("| SWE1-REQ-001 | ___ |", "| SWE1-REQ-001 | SW shall read steering angle sensor input within ±720° / 조향각 센서 입력을 ±720° 범위 내에서 읽어야 한다 |"),
+            ("| SWE1-REQ-002 | ___ |", "| SWE1-REQ-002 | SW shall calculate assist torque in range 0~12 Nm / 보조 토크를 0~12 Nm 범위에서 계산해야 한다 |"),
+            ("| SWE1-REQ-003 | ___ |", "| SWE1-REQ-003 | SW shall detect sensor failure within 10ms / 센서 고장을 10ms 이내에 감지해야 한다 |"),
+            ("| SWE1-NFR-001 | ___ | ___ |", "| SWE1-NFR-001 | Main control loop cycle time / 메인 제어 루프 주기 | ≤ 5 ms |"),
+            ("| SWE1-NFR-002 | ___ | ___ |", "| SWE1-NFR-002 | Boot time / 부팅 시간 | ≤ 200 ms |"),
+            ("| SWE1-NFR-003 | ___ | ___ |", "| SWE1-NFR-003 | RAM usage / RAM 사용량 | ≤ 70% |"),
+        ],
+        "SWE.2": [
+            ("| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| (추가",
+             "| SensorInput | Reads and filters steering angle sensor / 조향각 센서 읽기 및 필터링 | ADC raw data | Filtered angle |\n| ControlLogic | PID torque calculation / PID 토크 계산 | Angle, Speed | Torque command |\n| SafetyMonitor | Fault detection and safe state management / 고장 감지 및 안전 상태 관리 | All status | Safety state |\n| (추가"),
+            ("| ___ | ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ | ___ |\n| (추가",
+             "| SteeringAngle | SensorInput | ControlLogic | FLOAT32 | 5ms |\n| TargetTorque | ControlLogic | ActuatorOutput | FLOAT32 | 5ms |\n| SafetyState | SafetyMonitor | ControlLogic | ENUM | 5ms |\n| (추가"),
+        ],
+        "SWE.3": [
+            ("| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| (추가 / Add more) | | | |\n\n---\n\n## 2.",
+             "| CalcAssistTorque | angle, speed | torque (Nm) | PID control calculation / PID 제어 계산 |\n| ReadSteeringAngle | - | angle (deg) | Read and filter sensor / 센서 읽기 및 필터링 |\n| UpdateSafetyState | fault_mask | safety_state | Check faults and transition state / 고장 확인 및 상태 전이 |\n| (추가 / Add more) | | | |\n\n---\n\n## 2."),
+        ],
+        "SWE.4": [
+            ("| UT-001 | ___ | ___ | ___ | ___ |", "| UT-001 | CalcAssistTorque | Normal: angle=10°, speed=50km/h | torque=3.5 Nm | torque=3.5 Nm |"),
+            ("| UT-002 | ___ | ___ | ___ | ___ |", "| UT-002 | ReadSteeringAngle | Max positive input | angle=720.0° | angle=720.0° |"),
+            ("| UT-003 | ___ | ___ | ___ | ___ |", "| UT-003 | UpdateSafetyState | Critical fault input | state=SAFE_STATE | state=SAFE_STATE |"),
+        ],
+        "SWE.5": [
+            ("| IT-001 | ___ | ___ | ___ | ___ |", "| IT-001 | SensorInput→ControlLogic | Steering angle data flow | angle=45.0° received | angle=45.0° received |"),
+            ("| IT-002 | ___ | ___ | ___ | ___ |", "| IT-002 | ControlLogic→ActuatorOutput | Torque command chain | torque=5.0 Nm output | torque=5.0 Nm output |"),
+            ("| IT-003 | ___ | ___ | ___ | ___ |", "| IT-003 | CAN→ControlLogic | Vehicle speed signal (CAN 0x123) | Speed parsed correctly | Speed parsed correctly |"),
+            ("| ___ | ___ ms | ___ ms |", "| Main control loop | 5.0 ms | 4.2 ms |"),
+        ],
+        "SWE.6": [
+            ("| SWE1-REQ-001 | QT-001 | ___ |", "| SWE1-REQ-001 | QT-001 | Steering angle input range test / 조향각 입력 범위 시험 |"),
+            ("| SWE1-REQ-002 | QT-002 | ___ |", "| SWE1-REQ-002 | QT-002 | Assist torque output accuracy / 보조 토크 출력 정확도 |"),
+            ("| SWE1-REQ-003 | QT-003 | ___ |", "| SWE1-REQ-003 | QT-003 | Safety response time test / 안전 응답 시간 시험 |"),
+        ],
+    }
+    for old, new in replacements.get(swe_level, []):
+        content = content.replace(old, new)
+    # Fill remaining ___ with author name
+    content = content.replace("| Author | ___ |", "| Author | Kim Minjun |")
+    return content
+
+
+def _fill_brake_demo(content, swe_level):
+    """Fill ___ with VW ABS/ESC brake system sample data."""
+    replacements = {
+        "SWE.1": [
+            ("| SWE1-REQ-001 | ___ |", "| SWE1-REQ-001 | SW shall read wheel speed sensors (4 channels) / 휠 속도 센서 4채널을 읽어야 한다 |"),
+            ("| SWE1-REQ-002 | ___ |", "| SWE1-REQ-002 | SW shall calculate brake pressure for ABS control / ABS 제어를 위한 브레이크 압력을 계산해야 한다 |"),
+            ("| SWE1-REQ-003 | ___ |", "| SWE1-REQ-003 | SW shall activate ESC within 20ms of instability / 불안정 감지 20ms 이내에 ESC를 작동해야 한다 |"),
+            ("| SWE1-NFR-001 | ___ | ___ |", "| SWE1-NFR-001 | ABS control loop cycle / ABS 제어 루프 주기 | ≤ 2 ms |"),
+            ("| SWE1-NFR-002 | ___ | ___ |", "| SWE1-NFR-002 | ESC response time / ESC 응답 시간 | ≤ 20 ms |"),
+            ("| SWE1-NFR-003 | ___ | ___ |", "| SWE1-NFR-003 | CPU load under braking / 제동 시 CPU 부하 | ≤ 75% |"),
+        ],
+        "SWE.2": [
+            ("| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| (추가",
+             "| WheelSpeedInput | Reads 4 wheel speed sensors / 4채널 휠 속도 센서 읽기 | Sensor raw data | Filtered speed |\n| ABSController | Anti-lock braking algorithm / ABS 알고리즘 | Wheel speeds | Brake pressure cmd |\n| ESCController | Electronic stability control / 전자 안정성 제어 | Yaw rate, lateral accel | Brake distribution |\n| (추가"),
+            ("| ___ | ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ | ___ |\n| (추가",
+             "| WheelSpeed_FL | WheelSpeedInput | ABSController | FLOAT32 | 2ms |\n| BrakePressure | ABSController | HydraulicValve | FLOAT32 | 2ms |\n| YawRate | IMU | ESCController | FLOAT32 | 5ms |\n| (추가"),
+        ],
+        "SWE.3": [
+            ("| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| (추가 / Add more) | | | |\n\n---\n\n## 2.",
+             "| CalcBrakePressure | wheel_speeds, pedal_force | pressure (bar) | ABS pressure calculation / ABS 압력 계산 |\n| DetectWheelLock | wheel_speed, vehicle_speed | is_locked (bool) | Wheel lock detection / 휠 잠김 감지 |\n| CalcYawCorrection | yaw_rate, target_yaw | correction (Nm) | ESC yaw correction / ESC 요 보정 |\n| (추가 / Add more) | | | |\n\n---\n\n## 2."),
+        ],
+        "SWE.4": [
+            ("| UT-001 | ___ | ___ | ___ | ___ |", "| UT-001 | CalcBrakePressure | Normal braking: pedal=50% | pressure=40 bar | pressure=40 bar |"),
+            ("| UT-002 | ___ | ___ | ___ | ___ |", "| UT-002 | DetectWheelLock | Wheel slip > 15% | is_locked=TRUE | is_locked=TRUE |"),
+            ("| UT-003 | ___ | ___ | ___ | ___ |", "| UT-003 | CalcYawCorrection | Oversteer condition | correction=25 Nm | correction=25 Nm |"),
+        ],
+        "SWE.5": [
+            ("| IT-001 | ___ | ___ | ___ | ___ |", "| IT-001 | WheelSpeed→ABSController | Wheel speed data flow | 4ch speeds received | 4ch speeds received |"),
+            ("| IT-002 | ___ | ___ | ___ | ___ |", "| IT-002 | ABSController→HydraulicValve | Brake pressure command | pressure=40 bar output | pressure=40 bar output |"),
+            ("| IT-003 | ___ | ___ | ___ | ___ |", "| IT-003 | IMU→ESCController | Yaw rate signal | Yaw rate parsed correctly | Yaw rate parsed correctly |"),
+            ("| ___ | ___ ms | ___ ms |", "| ABS control loop | 2.0 ms | 1.6 ms |"),
+        ],
+        "SWE.6": [
+            ("| SWE1-REQ-001 | QT-001 | ___ |", "| SWE1-REQ-001 | QT-001 | Wheel speed sensor reading test / 휠 속도 센서 읽기 시험 |"),
+            ("| SWE1-REQ-002 | QT-002 | ___ |", "| SWE1-REQ-002 | QT-002 | ABS brake pressure accuracy / ABS 브레이크 압력 정확도 |"),
+            ("| SWE1-REQ-003 | QT-003 | ___ |", "| SWE1-REQ-003 | QT-003 | ESC activation response time / ESC 작동 응답 시간 시험 |"),
+        ],
+    }
+    for old, new in replacements.get(swe_level, []):
+        content = content.replace(old, new)
+    content = content.replace("| Author | ___ |", "| Author | Mueller Hans |")
+    return content
+
+
+def _fill_navigation_demo(content, swe_level):
+    """Fill ___ with GM navigation system sample data."""
+    replacements = {
+        "SWE.1": [
+            ("| SWE1-REQ-001 | ___ |", "| SWE1-REQ-001 | SW shall display map within 2 seconds of route request / 경로 요청 2초 이내에 지도를 표시해야 한다 |"),
+            ("| SWE1-REQ-002 | ___ |", "| SWE1-REQ-002 | SW shall calculate route within 5 seconds / 5초 이내에 경로를 계산해야 한다 |"),
+            ("| SWE1-REQ-003 | ___ |", "| SWE1-REQ-003 | SW shall update GPS position every 1 second / 1초마다 GPS 위치를 갱신해야 한다 |"),
+            ("| SWE1-NFR-001 | ___ | ___ |", "| SWE1-NFR-001 | Map rendering frame rate / 지도 렌더링 프레임률 | ≥ 30 fps |"),
+            ("| SWE1-NFR-002 | ___ | ___ |", "| SWE1-NFR-002 | Route calculation time / 경로 계산 시간 | ≤ 5 sec |"),
+            ("| SWE1-NFR-003 | ___ | ___ |", "| SWE1-NFR-003 | Memory usage / 메모리 사용량 | ≤ 512 MB |"),
+        ],
+        "SWE.2": [
+            ("| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| (추가",
+             "| MapRenderer | Renders map tiles on display / 지도 타일 렌더링 | Map data, GPS pos | Display output |\n| RouteEngine | Calculates optimal route / 최적 경로 계산 | Start, Destination | Route path |\n| GPSManager | Manages GPS position updates / GPS 위치 갱신 관리 | GPS signal | Lat/Lon/Heading |\n| (추가"),
+            ("| ___ | ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ | ___ |\n| (추가",
+             "| GPSPosition | GPSManager | MapRenderer | STRUCT | 1s |\n| RouteData | RouteEngine | MapRenderer | STRUCT | On request |\n| UserInput | HMI | RouteEngine | EVENT | On input |\n| (추가"),
+        ],
+        "SWE.3": [
+            ("| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| ___ | ___ | ___ | ___ |\n| (추가 / Add more) | | | |\n\n---\n\n## 2.",
+             "| CalcRoute | start, destination | route_path | A* pathfinding algorithm / A* 경로 탐색 |\n| RenderMapTile | tile_id, zoom_level | pixel_buffer | Map tile rendering / 지도 타일 렌더링 |\n| UpdateGPSPosition | raw_gps_data | lat, lon, heading | GPS signal processing / GPS 신호 처리 |\n| (추가 / Add more) | | | |\n\n---\n\n## 2."),
+        ],
+        "SWE.4": [
+            ("| UT-001 | ___ | ___ | ___ | ___ |", "| UT-001 | CalcRoute | Short route: 5km distance | Route found in < 1s | Route found in 0.8s |"),
+            ("| UT-002 | ___ | ___ | ___ | ___ |", "| UT-002 | RenderMapTile | Zoom level 15, urban area | Tile rendered < 33ms | Tile rendered in 28ms |"),
+            ("| UT-003 | ___ | ___ | ___ | ___ |", "| UT-003 | UpdateGPSPosition | Valid GPS signal | Position accuracy < 3m | Position accuracy 2.1m |"),
+        ],
+        "SWE.5": [
+            ("| IT-001 | ___ | ___ | ___ | ___ |", "| IT-001 | GPSManager→MapRenderer | GPS position to map display | Map centers on position | Map centers on position |"),
+            ("| IT-002 | ___ | ___ | ___ | ___ |", "| IT-002 | RouteEngine→MapRenderer | Route overlay on map | Route drawn correctly | Route drawn correctly |"),
+            ("| IT-003 | ___ | ___ | ___ | ___ |", "| IT-003 | HMI→RouteEngine | User destination input | Route calculated < 5s | Route calculated in 3.2s |"),
+            ("| ___ | ___ ms | ___ ms |", "| Map tile rendering | 33.0 ms | 28.0 ms |"),
+        ],
+        "SWE.6": [
+            ("| SWE1-REQ-001 | QT-001 | ___ |", "| SWE1-REQ-001 | QT-001 | Map display response time test / 지도 표시 응답 시간 시험 |"),
+            ("| SWE1-REQ-002 | QT-002 | ___ |", "| SWE1-REQ-002 | QT-002 | Route calculation time test / 경로 계산 시간 시험 |"),
+            ("| SWE1-REQ-003 | QT-003 | ___ |", "| SWE1-REQ-003 | QT-003 | GPS update frequency test / GPS 갱신 주기 시험 |"),
+        ],
+    }
+    for old, new in replacements.get(swe_level, []):
+        content = content.replace(old, new)
+    content = content.replace("| Author | ___ |", "| Author | Smith John |")
+    return content
+
+
 def _load_template_for_doc(template_id, project_name="", oem_name="", swe_level=""):
     """Load template content for a document's template_type, filling placeholders."""
     from src.services.export_service import _TEMPLATE_MAP, _TEMPLATES_DIR
@@ -58,6 +206,9 @@ def _load_template_for_doc(template_id, project_name="", oem_name="", swe_level=
         content = content.replace("{document_name}", "")
         content = content.replace("{status}", "Draft")
         content = content.replace("{swe_level}", "")
+        # Fill ___ placeholders with demo sample data for demo projects
+        if project_name and oem_name:
+            content = _fill_demo_content(content, project_name, oem_name, swe_level)
         return content
     except Exception:
         return ""
