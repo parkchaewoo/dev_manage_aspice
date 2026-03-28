@@ -1,4 +1,5 @@
 """메인 윈도우 - iOS 캘린더 스타일"""
+import os
 from PyQt5.QtWidgets import (
     QMainWindow, QDockWidget, QStackedWidget, QToolBar,
     QAction, QMessageBox, QWidget, QVBoxLayout, QLabel, QStatusBar,
@@ -332,8 +333,10 @@ class MainWindow(QMainWindow):
     def _backup_database(self):
         """Backup SQLite database to a file."""
         from src.services.backup_service import backup_database
+        from src.models.database import DB_PATH
+        default_dir = os.path.dirname(DB_PATH)
         path, _ = QFileDialog.getSaveFileName(
-            self, "Backup Database", "", "SQLite Database (*.db);;All Files (*)"
+            self, "Backup Database", default_dir, "SQLite Database (*.db);;All Files (*)"
         )
         if path:
             try:
@@ -345,8 +348,13 @@ class MainWindow(QMainWindow):
     def _restore_database(self):
         """Restore SQLite database from a backup file."""
         from src.services.backup_service import restore_database
+        from src.models.database import DB_PATH
+        default_dir = os.path.dirname(DB_PATH)
         path, _ = QFileDialog.getOpenFileName(
-            self, "Restore Database", "", "SQLite Database (*.db);;All Files (*)"
+            self,
+            f"Restore Database (current: {DB_PATH})",
+            default_dir,
+            "SQLite Database (*.db);;All Files (*)"
         )
         if path:
             reply = QMessageBox.question(
