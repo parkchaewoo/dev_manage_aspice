@@ -110,130 +110,131 @@ class DocumentEditorWidget(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setSpacing(0)
 
-        # 상단: 문서 목록 + 버튼
-        header = QHBoxLayout()
-        header.addWidget(QLabel("Documents / 문서 목록"))
-        self.btn_add = QPushButton("+ Add Document")
+        # 좌우 분할: 좌=문서 목록, 우=에디터
+        splitter = QSplitter(Qt.Horizontal)
+
+        # ===== 좌측: 문서 목록 패널 =====
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 4, 0)
+        left_layout.setSpacing(6)
+
+        left_header = QHBoxLayout()
+        left_header.addWidget(QLabel("Documents"))
+        self.btn_add = QPushButton("+ Add")
         self.btn_add.setProperty("secondary", True)
-        self.btn_add.setMaximumWidth(160)
+        self.btn_add.setMaximumWidth(70)
         self.btn_add.clicked.connect(self._add_document)
-        header.addStretch()
-        header.addWidget(self.btn_add)
-        layout.addLayout(header)
+        left_header.addStretch()
+        left_header.addWidget(self.btn_add)
+        left_layout.addLayout(left_header)
 
-        # 문서 테이블 (컴팩트)
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Document Name / 문서명", "Status / 상태", "Reviewer", "Actions"])
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Name / 문서명", "Status", ""])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
-        self.table.setMaximumHeight(150)
         self.table.cellClicked.connect(self._on_cell_clicked)
-        layout.addWidget(self.table)
+        left_layout.addWidget(self.table)
 
-        # 선택된 문서 이름 표시
-        self.doc_title = QLabel("Select a document above / 위 문서를 선택하세요")
-        self.doc_title.setStyleSheet("font-size:16px; font-weight:bold; color:#007AFF; padding:8px 0;")
-        layout.addWidget(self.doc_title)
+        splitter.addWidget(left_panel)
+
+        # ===== 우측: 에디터 패널 =====
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(4, 0, 0, 0)
+        right_layout.setSpacing(6)
+
+        # 문서 제목 + 내보내기 버튼
+        title_row = QHBoxLayout()
+        self.doc_title = QLabel("Select a document")
+        self.doc_title.setStyleSheet("font-size:15px; font-weight:bold; color:#007AFF;")
+        title_row.addWidget(self.doc_title)
+        title_row.addStretch()
+
+        self.btn_export_md = QPushButton("Export MD")
+        self.btn_export_md.setProperty("secondary", True)
+        self.btn_export_md.setMaximumWidth(90)
+        self.btn_export_md.clicked.connect(lambda: self._export_md(self._selected_doc_id) if self._selected_doc_id else None)
+        title_row.addWidget(self.btn_export_md)
+
+        self.btn_export_html = QPushButton("Export HTML")
+        self.btn_export_html.setProperty("secondary", True)
+        self.btn_export_html.setMaximumWidth(100)
+        self.btn_export_html.clicked.connect(lambda: self._export_html(self._selected_doc_id) if self._selected_doc_id else None)
+        title_row.addWidget(self.btn_export_html)
+        right_layout.addLayout(title_row)
 
         # 미리보기 / 편집 탭
         self.editor_tabs = QTabWidget()
 
-        # 탭 1: 미리보기 (렌더링된 HTML)
+        # 탭 1: 미리보기
         self.preview = QTextBrowser()
         self.preview.setOpenExternalLinks(False)
         self.preview.setStyleSheet(
             "QTextBrowser { background:#FFFFFF; border:1px solid #E5E5EA; "
-            "border-radius:8px; padding:16px; font-size:13px; }"
+            "border-radius:8px; padding:12px; }"
         )
-        self.editor_tabs.addTab(self.preview, "📖 Preview / 미리보기")
+        self.editor_tabs.addTab(self.preview, "Preview")
 
-        # 탭 2: 편집 (마크다운 원본)
+        # 탭 2: 편집
         edit_widget = QWidget()
         edit_layout = QVBoxLayout(edit_widget)
         edit_layout.setContentsMargins(0, 0, 0, 0)
-
-        # 편집 도움말
-        help_label = QLabel(
-            "💡 Markdown format. Use ## for sections, | for tables, "
-            "**bold**, - for lists / 마크다운 형식으로 작성하세요"
-        )
-        help_label.setStyleSheet("color:#8E8E93; font-size:11px; padding:4px;")
-        help_label.setWordWrap(True)
-        edit_layout.addWidget(help_label)
+        edit_layout.setSpacing(4)
 
         self.content_edit = QTextEdit()
         self.content_edit.setStyleSheet(
             "QTextEdit { font-family:'Courier New','Monaco','Menlo',monospace; "
-            "font-size:13px; line-height:1.5; background:#FAFAFA; "
-            "border:1px solid #E5E5EA; border-radius:8px; padding:12px; }"
+            "font-size:13px; background:#FAFAFA; "
+            "border:1px solid #E5E5EA; border-radius:8px; padding:8px; }"
         )
         self.content_edit.setPlaceholderText(
-            "Edit document content here in Markdown format...\n"
-            "마크다운 형식으로 문서 내용을 편집하세요...\n\n"
-            "## Section Title\n"
-            "| Column 1 | Column 2 |\n"
-            "|----------|----------|\n"
-            "| data     | data     |"
+            "Markdown format: ## Heading, | Table |, **bold**, - list"
         )
         edit_layout.addWidget(self.content_edit)
 
-        # 저장 + 미리보기 새로고침 버튼
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-
-        self.btn_refresh_preview = QPushButton("🔄 Refresh Preview")
+        self.btn_refresh_preview = QPushButton("Refresh Preview")
         self.btn_refresh_preview.setProperty("secondary", True)
-        self.btn_refresh_preview.setMaximumWidth(180)
+        self.btn_refresh_preview.setMaximumWidth(140)
         self.btn_refresh_preview.clicked.connect(self._refresh_preview)
         btn_row.addWidget(self.btn_refresh_preview)
-
-        self.btn_save_content = QPushButton("💾 Save Content / 내용 저장")
-        self.btn_save_content.setMaximumWidth(200)
+        self.btn_save_content = QPushButton("Save Content")
+        self.btn_save_content.setMaximumWidth(120)
         self.btn_save_content.clicked.connect(self._save_content)
         btn_row.addWidget(self.btn_save_content)
         edit_layout.addLayout(btn_row)
 
-        self.editor_tabs.addTab(edit_widget, "✏️ Edit / 편집")
+        self.editor_tabs.addTab(edit_widget, "Edit")
+        right_layout.addWidget(self.editor_tabs, 1)
 
-        # 탭 3: 내보내기
-        export_widget = QWidget()
-        export_layout = QVBoxLayout(export_widget)
-        export_layout.addWidget(QLabel("Export this document / 이 문서를 내보내기:"))
-        export_btn_row = QHBoxLayout()
-        self.btn_export_md = QPushButton("Export as Markdown (.md)")
-        self.btn_export_md.clicked.connect(lambda: self._export_md(self._selected_doc_id) if self._selected_doc_id else None)
-        export_btn_row.addWidget(self.btn_export_md)
-        self.btn_export_html = QPushButton("Export as HTML (.html)")
-        self.btn_export_html.clicked.connect(lambda: self._export_html(self._selected_doc_id) if self._selected_doc_id else None)
-        export_btn_row.addWidget(self.btn_export_html)
-        export_layout.addLayout(export_btn_row)
-        export_layout.addStretch()
-        self.editor_tabs.addTab(export_widget, "📤 Export / 내보내기")
-
-        layout.addWidget(self.editor_tabs, 1)
-
-        # Version History (접기 가능)
-        self.version_group = QGroupBox("📋 Version History / 버전 이력")
+        # 버전 이력 (접기)
+        self.version_group = QGroupBox("Version History")
         self.version_group.setCheckable(True)
         self.version_group.setChecked(False)
         version_layout = QVBoxLayout(self.version_group)
         self.version_table = QTableWidget()
         self.version_table.setColumnCount(4)
-        self.version_table.setHorizontalHeaderLabels(["Version", "Date", "Changed By", "Description"])
+        self.version_table.setHorizontalHeaderLabels(["Ver", "Date", "By", "Description"])
         self.version_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.version_table.verticalHeader().setVisible(False)
-        self.version_table.setMaximumHeight(120)
+        self.version_table.setMaximumHeight(100)
         version_layout.addWidget(self.version_table)
         self.version_group.toggled.connect(self._on_version_group_toggled)
-        layout.addWidget(self.version_group)
+        right_layout.addWidget(self.version_group)
+
+        splitter.addWidget(right_panel)
+        splitter.setSizes([280, 520])
+
+        layout.addWidget(splitter)
 
     def load_stage(self, stage_id, conn=None):
         """단계의 문서 목록 로드"""
@@ -251,24 +252,17 @@ class DocumentEditorWidget(QWidget):
             self.table.setItem(i, 0, name_item)
 
             status = doc["status"]
-            status_item = QTableWidgetItem(f"  {status}  ")
+            status_item = QTableWidgetItem(status)
             color = STATUS_COLORS.get(status, "#8E8E93")
             status_item.setForeground(QColor("white"))
             status_item.setBackground(QColor(color))
             self.table.setItem(i, 1, status_item)
 
-            reviewer_item = QTableWidgetItem(doc["reviewer"] or "-")
-            self.table.setItem(i, 2, reviewer_item)
-
-            btn_widget = QWidget()
-            btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(4, 2, 4, 2)
             edit_btn = QPushButton("Edit")
-            edit_btn.setMaximumWidth(60)
+            edit_btn.setMaximumWidth(50)
             edit_btn.setProperty("secondary", True)
             edit_btn.clicked.connect(lambda _, d=doc["id"]: self._edit_document(d))
-            btn_layout.addWidget(edit_btn)
-            self.table.setCellWidget(i, 3, btn_widget)
+            self.table.setCellWidget(i, 2, edit_btn)
 
         # 첫 문서 자동 선택
         if len(docs) > 0:
