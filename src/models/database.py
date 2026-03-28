@@ -133,6 +133,67 @@ def initialize_schema(conn=None):
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
             FOREIGN KEY (stage_id) REFERENCES stages(id) ON DELETE SET NULL
         );
+
+        CREATE TABLE IF NOT EXISTS review_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER NOT NULL,
+            review_date DATE NOT NULL,
+            review_type TEXT DEFAULT 'Formal',
+            participants TEXT DEFAULT '',
+            findings TEXT DEFAULT '',
+            decisions TEXT DEFAULT '',
+            action_items TEXT DEFAULT '',
+            result TEXT DEFAULT 'Open',
+            notes TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS test_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stage_id INTEGER NOT NULL,
+            test_date DATE,
+            test_type TEXT DEFAULT '',
+            total_cases INTEGER DEFAULT 0,
+            passed INTEGER DEFAULT 0,
+            failed INTEGER DEFAULT 0,
+            blocked INTEGER DEFAULT 0,
+            not_executed INTEGER DEFAULT 0,
+            pass_rate REAL DEFAULT 0,
+            coverage_statement REAL DEFAULT 0,
+            coverage_branch REAL DEFAULT 0,
+            coverage_mcdc REAL DEFAULT 0,
+            tool_name TEXT DEFAULT '',
+            tool_version TEXT DEFAULT '',
+            notes TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (stage_id) REFERENCES stages(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER,
+            stage_id INTEGER,
+            file_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_type TEXT DEFAULT '',
+            description TEXT DEFAULT '',
+            file_size INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE SET NULL,
+            FOREIGN KEY (stage_id) REFERENCES stages(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS document_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER NOT NULL,
+            version_number INTEGER DEFAULT 1,
+            content_snapshot TEXT DEFAULT '',
+            change_description TEXT DEFAULT '',
+            changed_by TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+        );
     """)
     conn.commit()
 
