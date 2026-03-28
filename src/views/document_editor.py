@@ -1,14 +1,15 @@
-"""문서 편집기 / 목록 위젯"""
+"""문서 편집기 / 목록 위젯 - 미리보기 + 편집 분리"""
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QTableWidget, QTableWidgetItem, QPushButton, QComboBox,
     QHeaderView, QTextBrowser, QTextEdit, QDialog, QLineEdit, QFormLayout,
-    QFileDialog, QMessageBox, QGroupBox
+    QFileDialog, QMessageBox, QGroupBox, QTabWidget, QSplitter
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QFont
 
 import os
+import re
 from datetime import date
 
 from src.models.document import DocumentModel
@@ -17,18 +18,101 @@ from src.utils.constants import DocumentStatus, STATUS_COLORS
 from src.utils.styles import get_user_name
 
 
+def _md_to_html(md_text):
+    """마크다운 → HTML 변환 (간단 버전, 가이드 코멘트 강조)"""
+    lines = md_text.split("\n")
+    html_lines = []
+    in_table = False
+    in_code = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # 코드 블록
+        if stripped.startswith("```"):
+            if in_code:
+                html_lines.append("</pre>")
+                in_code = False
+            else:
+                html_lines.append("<pre style='background:#F2F2F7;padding:12px;border-radius:8px;font-size:12px;overflow-x:auto;'>")
+                in_code = True
+            continue
+        if in_code:
+            html_lines.append(line.replace("<", "&lt;").replace(">", "&gt;"))
+            continue
+
+        # GUIDE 코멘트 → 파란 가이드 박스로 변환
+        guide_match = re.match(r'<!--\s*GUIDE:\s*(.+?)\s*-->', stripped)
+        if guide_match:
+            guide_text = guide_match.group(1)
+            html_lines.append(
+                f'<div style="background:#E8F0FE;border-left:4px solid #007AFF;'
+                f'padding:8px 12px;margin:8px 0;border-radius:4px;font-size:13px;color:#007AFF;">'
+                f'💡 <b>Guide:</b> {guide_text}</div>'
+            )
+            continue
+
+        # 헤딩
+        if stripped.startswith("######"):
+            html_lines.append(f"<h6 style='color:#3A3A3C;margin:12px 0 4px;'>{stripped[6:].strip()}</h6>")
+        elif stripped.startswith("#####"):
+            html_lines.append(f"<h5 style='color:#3A3A3C;margin:12px 0 4px;'>{stripped[5:].strip()}</h5>")
+        elif stripped.startswith("####"):
+            html_lines.append(f"<h4 style='color:#3A3A3C;margin:14px 0 6px;'>{stripped[4:].strip()}</h4>")
+        elif stripped.startswith("###"):
+            html_lines.append(f"<h3 style='color:#1C1C1E;margin:16px 0 6px;'>{stripped[3:].strip()}</h3>")
+        elif stripped.startswith("##"):
+            html_lines.append(f"<h2 style='color:#007AFF;margin:20px 0 8px;border-bottom:1px solid #E5E5EA;padding-bottom:6px;'>{stripped[2:].strip()}</h2>")
+        elif stripped.startswith("# "):
+            html_lines.append(f"<h1 style='color:#007AFF;margin:0 0 12px;'>{stripped[1:].strip()}</h1>")
+        elif stripped.startswith("---"):
+            html_lines.append("<hr style='border:none;border-top:1px solid #E5E5EA;margin:16px 0;'>")
+        elif stripped.startswith("| "):
+            # 테이블
+            if not in_table:
+                html_lines.append("<table style='border-collapse:collapse;width:100%;margin:8px 0;font-size:13px;'>")
+                in_table = True
+            cells = [c.strip() for c in stripped.split("|")[1:-1]]
+            if all(set(c) <= {"-", ":", " "} for c in cells):
+                continue
+            row_html = "<tr>" + "".join(
+                f"<td style='border:1px solid #D1D1D6;padding:6px 10px;'>{c}</td>" for c in cells
+            ) + "</tr>"
+            html_lines.append(row_html)
+        elif stripped.startswith("- "):
+            html_lines.append(f"<li style='margin:2px 0;'>{stripped[2:]}</li>")
+        else:
+            if in_table:
+                html_lines.append("</table>")
+                in_table = False
+            if stripped:
+                # Bold
+                processed = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', stripped)
+                # Inline code
+                processed = re.sub(r'`(.+?)`', r'<code style="background:#F2F2F7;padding:2px 4px;border-radius:3px;font-size:12px;">\1</code>', processed)
+                html_lines.append(f"<p style='margin:4px 0;line-height:1.6;'>{processed}</p>")
+
+    if in_table:
+        html_lines.append("</table>")
+    if in_code:
+        html_lines.append("</pre>")
+
+    return "\n".join(html_lines)
+
+
 class DocumentEditorWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.stage_id = None
+        self._selected_doc_id = None
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
 
-        # 헤더
+        # 상단: 문서 목록 + 버튼
         header = QHBoxLayout()
         header.addWidget(QLabel("Documents / 문서 목록"))
         self.btn_add = QPushButton("+ Add Document")
@@ -39,12 +123,10 @@ class DocumentEditorWidget(QWidget):
         header.addWidget(self.btn_add)
         layout.addLayout(header)
 
-        self._selected_doc_id = None
-
-        # 문서 테이블
+        # 문서 테이블 (컴팩트)
         self.table = QTableWidget()
         self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Document Name / 문서명", "Status / 상태", "Reviewer / 검토자", "Actions"])
+        self.table.setHorizontalHeaderLabels(["Document Name / 문서명", "Status / 상태", "Reviewer", "Actions"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
@@ -52,39 +134,103 @@ class DocumentEditorWidget(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
+        self.table.setMaximumHeight(150)
         self.table.cellClicked.connect(self._on_cell_clicked)
         layout.addWidget(self.table)
 
-        # 문서 편집기 (Rich Editor)
-        self.content_edit = QTextEdit()
-        self.content_edit.setMinimumHeight(200)
-        self.content_edit.setPlaceholderText(
-            "Select a document and edit content here / 문서를 선택하고 여기서 내용을 편집하세요"
-        )
-        layout.addWidget(self.content_edit)
+        # 선택된 문서 이름 표시
+        self.doc_title = QLabel("Select a document above / 위 문서를 선택하세요")
+        self.doc_title.setStyleSheet("font-size:16px; font-weight:bold; color:#007AFF; padding:8px 0;")
+        layout.addWidget(self.doc_title)
 
-        # Save Content 버튼
-        save_content_layout = QHBoxLayout()
-        save_content_layout.addStretch()
-        self.btn_save_content = QPushButton("Save Content / 내용 저장")
+        # 미리보기 / 편집 탭
+        self.editor_tabs = QTabWidget()
+
+        # 탭 1: 미리보기 (렌더링된 HTML)
+        self.preview = QTextBrowser()
+        self.preview.setOpenExternalLinks(False)
+        self.preview.setStyleSheet(
+            "QTextBrowser { background:#FFFFFF; border:1px solid #E5E5EA; "
+            "border-radius:8px; padding:16px; font-size:13px; }"
+        )
+        self.editor_tabs.addTab(self.preview, "📖 Preview / 미리보기")
+
+        # 탭 2: 편집 (마크다운 원본)
+        edit_widget = QWidget()
+        edit_layout = QVBoxLayout(edit_widget)
+        edit_layout.setContentsMargins(0, 0, 0, 0)
+
+        # 편집 도움말
+        help_label = QLabel(
+            "💡 Markdown format. Use ## for sections, | for tables, "
+            "**bold**, - for lists / 마크다운 형식으로 작성하세요"
+        )
+        help_label.setStyleSheet("color:#8E8E93; font-size:11px; padding:4px;")
+        help_label.setWordWrap(True)
+        edit_layout.addWidget(help_label)
+
+        self.content_edit = QTextEdit()
+        self.content_edit.setStyleSheet(
+            "QTextEdit { font-family:'Courier New','Monaco','Menlo',monospace; "
+            "font-size:13px; line-height:1.5; background:#FAFAFA; "
+            "border:1px solid #E5E5EA; border-radius:8px; padding:12px; }"
+        )
+        self.content_edit.setPlaceholderText(
+            "Edit document content here in Markdown format...\n"
+            "마크다운 형식으로 문서 내용을 편집하세요...\n\n"
+            "## Section Title\n"
+            "| Column 1 | Column 2 |\n"
+            "|----------|----------|\n"
+            "| data     | data     |"
+        )
+        edit_layout.addWidget(self.content_edit)
+
+        # 저장 + 미리보기 새로고침 버튼
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+
+        self.btn_refresh_preview = QPushButton("🔄 Refresh Preview")
+        self.btn_refresh_preview.setProperty("secondary", True)
+        self.btn_refresh_preview.setMaximumWidth(180)
+        self.btn_refresh_preview.clicked.connect(self._refresh_preview)
+        btn_row.addWidget(self.btn_refresh_preview)
+
+        self.btn_save_content = QPushButton("💾 Save Content / 내용 저장")
         self.btn_save_content.setMaximumWidth(200)
         self.btn_save_content.clicked.connect(self._save_content)
-        save_content_layout.addWidget(self.btn_save_content)
-        layout.addLayout(save_content_layout)
+        btn_row.addWidget(self.btn_save_content)
+        edit_layout.addLayout(btn_row)
 
-        # Version History collapsible section
-        self.version_group = QGroupBox("Version History / 버전 이력")
+        self.editor_tabs.addTab(edit_widget, "✏️ Edit / 편집")
+
+        # 탭 3: 내보내기
+        export_widget = QWidget()
+        export_layout = QVBoxLayout(export_widget)
+        export_layout.addWidget(QLabel("Export this document / 이 문서를 내보내기:"))
+        export_btn_row = QHBoxLayout()
+        self.btn_export_md = QPushButton("Export as Markdown (.md)")
+        self.btn_export_md.clicked.connect(lambda: self._export_md(self._selected_doc_id) if self._selected_doc_id else None)
+        export_btn_row.addWidget(self.btn_export_md)
+        self.btn_export_html = QPushButton("Export as HTML (.html)")
+        self.btn_export_html.clicked.connect(lambda: self._export_html(self._selected_doc_id) if self._selected_doc_id else None)
+        export_btn_row.addWidget(self.btn_export_html)
+        export_layout.addLayout(export_btn_row)
+        export_layout.addStretch()
+        self.editor_tabs.addTab(export_widget, "📤 Export / 내보내기")
+
+        layout.addWidget(self.editor_tabs, 1)
+
+        # Version History (접기 가능)
+        self.version_group = QGroupBox("📋 Version History / 버전 이력")
         self.version_group.setCheckable(True)
         self.version_group.setChecked(False)
         version_layout = QVBoxLayout(self.version_group)
         self.version_table = QTableWidget()
         self.version_table.setColumnCount(4)
-        self.version_table.setHorizontalHeaderLabels([
-            "Version", "Date / 날짜", "Changed By / 변경자", "Description / 설명"
-        ])
+        self.version_table.setHorizontalHeaderLabels(["Version", "Date", "Changed By", "Description"])
         self.version_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.version_table.verticalHeader().setVisible(False)
-        self.version_table.setMaximumHeight(150)
+        self.version_table.setMaximumHeight(120)
         version_layout.addWidget(self.version_table)
         self.version_group.toggled.connect(self._on_version_group_toggled)
         layout.addWidget(self.version_group)
@@ -92,7 +238,6 @@ class DocumentEditorWidget(QWidget):
     def load_stage(self, stage_id, conn=None):
         """단계의 문서 목록 로드"""
         self.stage_id = stage_id
-        from src.models.database import get_connection
         should_close = conn is None
         if conn is None:
             conn = get_connection()
@@ -101,12 +246,10 @@ class DocumentEditorWidget(QWidget):
         self.table.setRowCount(len(docs))
 
         for i, doc in enumerate(docs):
-            # 문서명
             name_item = QTableWidgetItem(doc["name"])
             name_item.setData(Qt.UserRole, doc["id"])
             self.table.setItem(i, 0, name_item)
 
-            # 상태 (배지)
             status = doc["status"]
             status_item = QTableWidgetItem(f"  {status}  ")
             color = STATUS_COLORS.get(status, "#8E8E93")
@@ -114,50 +257,95 @@ class DocumentEditorWidget(QWidget):
             status_item.setBackground(QColor(color))
             self.table.setItem(i, 1, status_item)
 
-            # 검토자
             reviewer_item = QTableWidgetItem(doc["reviewer"] or "-")
             self.table.setItem(i, 2, reviewer_item)
 
-            # 액션 버튼
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
             btn_layout.setContentsMargins(4, 2, 4, 2)
-
             edit_btn = QPushButton("Edit")
             edit_btn.setMaximumWidth(60)
             edit_btn.setProperty("secondary", True)
             edit_btn.clicked.connect(lambda _, d=doc["id"]: self._edit_document(d))
             btn_layout.addWidget(edit_btn)
-
-            md_btn = QPushButton("Export MD")
-            md_btn.setMaximumWidth(80)
-            md_btn.setProperty("secondary", True)
-            md_btn.clicked.connect(lambda _, d=doc["id"]: self._export_md(d))
-            btn_layout.addWidget(md_btn)
-
-            html_btn = QPushButton("Export HTML")
-            html_btn.setMaximumWidth(90)
-            html_btn.setProperty("secondary", True)
-            html_btn.clicked.connect(lambda _, d=doc["id"]: self._export_html(d))
-            btn_layout.addWidget(html_btn)
-
             self.table.setCellWidget(i, 3, btn_widget)
+
+        # 첫 문서 자동 선택
+        if len(docs) > 0:
+            self.table.selectRow(0)
+            self._on_cell_clicked(0, 0)
 
         if should_close:
             conn.close()
 
-    def _save_content(self):
-        """Save the content editor text to the selected document."""
-        if not self._selected_doc_id:
-            QMessageBox.warning(
-                self, "No Document Selected",
-                "Please select a document first.\n문서를 먼저 선택해주세요."
-            )
+    def _on_cell_clicked(self, row, col):
+        """문서 선택 → 미리보기 + 편집기 로드"""
+        item = self.table.item(row, 0)
+        if not item:
             return
-        content = self.content_edit.toPlainText()
+        doc_id = item.data(Qt.UserRole)
+        doc = DocumentModel.get_by_id(doc_id)
+        if not doc:
+            return
+
+        self._selected_doc_id = doc_id
+        self.doc_title.setText(f"📄 {doc['name']}  [{doc['status']}]")
+
+        # 콘텐츠 로드
         try:
-            # Save version before updating
-            conn = get_connection()
+            content = doc["content"] or ""
+        except (IndexError, KeyError):
+            content = ""
+
+        # 편집기에 마크다운 원본
+        self.content_edit.setPlainText(content)
+
+        # 미리보기에 렌더링된 HTML
+        if content.strip():
+            html = _md_to_html(content)
+            self.preview.setHtml(
+                f"<div style='font-family:\"Helvetica Neue\",sans-serif;'>{html}</div>"
+            )
+        else:
+            self.preview.setHtml(
+                "<div style='text-align:center;padding:40px;color:#8E8E93;'>"
+                "<h2>No Content / 내용 없음</h2>"
+                "<p>Switch to the <b>Edit</b> tab to start writing.<br>"
+                "<b>편집</b> 탭으로 이동하여 내용을 작성하세요.</p>"
+                "</div>"
+            )
+
+        # 미리보기 탭으로 전환
+        self.editor_tabs.setCurrentIndex(0)
+
+        # 버전 이력 로드
+        self._load_version_history(doc_id)
+
+    def _refresh_preview(self):
+        """편집 내용으로 미리보기 새로고침"""
+        content = self.content_edit.toPlainText()
+        if content.strip():
+            html = _md_to_html(content)
+            self.preview.setHtml(
+                f"<div style='font-family:\"Helvetica Neue\",sans-serif;'>{html}</div>"
+            )
+            self.editor_tabs.setCurrentIndex(0)
+        else:
+            self.preview.setHtml(
+                "<div style='text-align:center;padding:40px;color:#8E8E93;'>"
+                "<p>No content to preview / 미리볼 내용이 없습니다</p></div>"
+            )
+
+    def _save_content(self):
+        """문서 내용 저장 (버전 스냅샷 포함)"""
+        if not self._selected_doc_id:
+            QMessageBox.warning(self, "Warning", "No document selected.\n문서를 먼저 선택하세요.")
+            return
+
+        new_content = self.content_edit.toPlainText()
+        conn = get_connection()
+        try:
+            # 이전 내용 스냅샷 저장
             old_doc = DocumentModel.get_by_id(self._selected_doc_id, conn)
             if old_doc:
                 try:
@@ -165,121 +353,72 @@ class DocumentEditorWidget(QWidget):
                 except (IndexError, KeyError):
                     old_content = ""
                 if old_content:
-                    user_name = get_user_name() or "Unknown"
-                    # Get next version number
-                    row = conn.execute(
-                        "SELECT COALESCE(MAX(version_number), 0) + 1 FROM document_versions WHERE document_id = ?",
+                    ver_count = conn.execute(
+                        "SELECT COUNT(*) FROM document_versions WHERE document_id = ?",
                         (self._selected_doc_id,)
-                    ).fetchone()
-                    next_version = row[0] if row else 1
+                    ).fetchone()[0]
+                    user = get_user_name() or "System"
                     conn.execute(
-                        "INSERT INTO document_versions (document_id, version_number, content_snapshot, change_description, changed_by) VALUES (?, ?, ?, ?, ?)",
-                        (self._selected_doc_id, next_version, old_content, "Content updated", user_name)
+                        "INSERT INTO document_versions (document_id, version_number, content_snapshot, change_description, changed_by) VALUES (?,?,?,?,?)",
+                        (self._selected_doc_id, ver_count + 1, old_content, "Content updated", user)
                     )
                     conn.commit()
+
+            # 새 내용 저장
+            DocumentModel.update(self._selected_doc_id, content=new_content, conn=conn)
             conn.close()
 
-            DocumentModel.update(self._selected_doc_id, content=content)
+            # 미리보기 새로고침
+            self._refresh_preview()
             self._load_version_history(self._selected_doc_id)
-            QMessageBox.information(
-                self, "Saved / 저장됨",
-                "Document content saved successfully.\n문서 내용이 저장되었습니다."
-            )
+            QMessageBox.information(self, "Saved", "Content saved successfully.\n내용이 저장되었습니다.")
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to save content:\n{e}")
-
-    def _on_version_group_toggled(self, checked):
-        """Show/hide version history table."""
-        self.version_table.setVisible(checked)
-        if checked and self._selected_doc_id:
-            self._load_version_history(self._selected_doc_id)
+            conn.close()
+            QMessageBox.warning(self, "Error", f"Failed to save:\n{e}")
 
     def _load_version_history(self, doc_id):
-        """Load version history for the given document."""
+        """버전 이력 로드"""
+        conn = get_connection()
         try:
-            conn = get_connection()
             rows = conn.execute(
-                "SELECT version_number, created_at, changed_by, change_description "
-                "FROM document_versions WHERE document_id = ? ORDER BY version_number DESC",
+                "SELECT * FROM document_versions WHERE document_id = ? ORDER BY version_number DESC",
                 (doc_id,)
             ).fetchall()
-            conn.close()
-            self.version_table.setRowCount(len(rows))
-            for i, row in enumerate(rows):
-                self.version_table.setItem(i, 0, QTableWidgetItem(str(row[0])))
-                self.version_table.setItem(i, 1, QTableWidgetItem(str(row[1] or "")))
-                self.version_table.setItem(i, 2, QTableWidgetItem(str(row[2] or "")))
-                self.version_table.setItem(i, 3, QTableWidgetItem(str(row[3] or "")))
         except Exception:
-            self.version_table.setRowCount(0)
+            rows = []
+        conn.close()
 
-    def _on_cell_clicked(self, row, col):
-        """문서 선택 시 내용을 편집기에 로드"""
-        item = self.table.item(row, 0)
-        if item:
-            doc_id = item.data(Qt.UserRole)
-            doc = DocumentModel.get_by_id(doc_id)
-            if doc:
-                self._selected_doc_id = doc_id
-                try:
-                    self.content_edit.setPlainText(doc["content"] or "")
-                except (IndexError, KeyError):
-                    self.content_edit.setPlainText("")
-                self._load_version_history(doc_id)
+        self.version_table.setRowCount(len(rows))
+        for i, row in enumerate(rows):
+            self.version_table.setItem(i, 0, QTableWidgetItem(str(row["version_number"])))
+            self.version_table.setItem(i, 1, QTableWidgetItem(str(row["created_at"] or "")))
+            self.version_table.setItem(i, 2, QTableWidgetItem(str(row["changed_by"] or "")))
+            self.version_table.setItem(i, 3, QTableWidgetItem(str(row["change_description"] or "")))
 
-    def _export_md(self, doc_id):
-        """Export document as Markdown."""
-        from src.services.export_service import export_to_markdown
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Export as Markdown", "", "Markdown Files (*.md);;All Files (*)"
-        )
-        if path:
-            try:
-                export_to_markdown(doc_id, path)
-                QMessageBox.information(self, "Export", f"Exported to:\n{path}")
-            except Exception as e:
-                QMessageBox.warning(self, "Export Error", str(e))
-
-    def _export_html(self, doc_id):
-        """Export document as HTML."""
-        from src.services.export_service import export_to_html
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Export as HTML", "", "HTML Files (*.html);;All Files (*)"
-        )
-        if path:
-            try:
-                export_to_html(doc_id, path)
-                QMessageBox.information(self, "Export", f"Exported to:\n{path}")
-            except Exception as e:
-                QMessageBox.warning(self, "Export Error", str(e))
+    def _on_version_group_toggled(self, checked):
+        self.version_table.setVisible(checked)
 
     def _load_template_content(self, template_type):
-        """Load template content based on the stage's SWE level or template_type."""
+        """Load template content for auto-fill."""
         from src.services.export_service import _TEMPLATE_MAP, _TEMPLATES_DIR
         from src.models.stage import StageModel
         from src.models.project import ProjectModel
         from src.models.oem import OemModel
 
-        # Try template_type first, then fall back to SWE level
         filename = _TEMPLATE_MAP.get(template_type)
         if not filename and self.stage_id:
             stage = StageModel.get_by_id(self.stage_id)
             if stage:
                 filename = _TEMPLATE_MAP.get(stage["swe_level"])
-
         if not filename:
             return ""
-
         path = os.path.join(_TEMPLATES_DIR, filename)
         if not os.path.isfile(path):
             return ""
-
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        # Fill placeholders
-        project_name = ""
-        oem_name = ""
+        project_name, oem_name = "", ""
         if self.stage_id:
             stage = StageModel.get_by_id(self.stage_id)
             if stage:
@@ -302,7 +441,6 @@ class DocumentEditorWidget(QWidget):
         if dialog.exec_():
             data = dialog.get_data()
             try:
-                # Auto-load template content for new documents
                 template_type = data.get("template_type", "")
                 template_content = self._load_template_content(template_type)
                 if template_content:
@@ -321,6 +459,26 @@ class DocumentEditorWidget(QWidget):
             data = dialog.get_data()
             DocumentModel.update(doc_id, **data)
             self.load_stage(self.stage_id)
+
+    def _export_md(self, doc_id):
+        from src.services.export_service import export_to_markdown
+        path, _ = QFileDialog.getSaveFileName(self, "Export as Markdown", "", "Markdown (*.md)")
+        if path:
+            try:
+                export_to_markdown(doc_id, path)
+                QMessageBox.information(self, "Export", f"Exported to:\n{path}")
+            except Exception as e:
+                QMessageBox.warning(self, "Export Error", str(e))
+
+    def _export_html(self, doc_id):
+        from src.services.export_service import export_to_html
+        path, _ = QFileDialog.getSaveFileName(self, "Export as HTML", "", "HTML (*.html)")
+        if path:
+            try:
+                export_to_html(doc_id, path)
+                QMessageBox.information(self, "Export", f"Exported to:\n{path}")
+            except Exception as e:
+                QMessageBox.warning(self, "Export Error", str(e))
 
 
 class DocumentDialog(QDialog):
@@ -341,7 +499,7 @@ class DocumentDialog(QDialog):
         layout.addRow("Name / 이름:", self.name_edit)
 
         self.template_edit = QLineEdit()
-        self.template_edit.setPlaceholderText("e.g., srs, sad, sdd")
+        self.template_edit.setPlaceholderText("e.g., srs, sad, sdd, ut_plan, qt_report")
         layout.addRow("Template ID:", self.template_edit)
 
         self.status_combo = QComboBox()
@@ -354,7 +512,6 @@ class DocumentDialog(QDialog):
         self.notes_edit = QLineEdit()
         layout.addRow("Notes / 메모:", self.notes_edit)
 
-        # 버튼
         btn_layout = QHBoxLayout()
         save_btn = QPushButton("Save / 저장")
         save_btn.clicked.connect(self.accept)
@@ -374,7 +531,6 @@ class DocumentDialog(QDialog):
             self.reviewer_edit.setText(self.doc["reviewer"] or "")
             self.notes_edit.setText(self.doc["notes"] or "")
         elif self.stage_id:
-            # Auto-fill name with generated ID for new documents
             try:
                 auto_id = DocumentModel.get_next_id(self.stage_id)
                 self.name_edit.setText(auto_id)
