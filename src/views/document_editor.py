@@ -200,11 +200,43 @@ class DocumentEditorWidget(QWidget):
         )
         self.editor_tabs.addTab(self.preview, "Preview")
 
-        # 탭 2: 편집
-        edit_widget = QWidget()
-        edit_layout = QVBoxLayout(edit_widget)
-        edit_layout.setContentsMargins(0, 0, 0, 0)
-        edit_layout.setSpacing(4)
+        # 탭 2: Form Editor (테이블 GUI 편집)
+        form_widget = QWidget()
+        form_layout = QVBoxLayout(form_widget)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setSpacing(4)
+
+        form_help = QLabel("Click cells to edit directly / 셀을 클릭하여 직접 편집하세요")
+        form_help.setStyleSheet("color:#8E8E93; font-size:11px; padding:2px;")
+        form_layout.addWidget(form_help)
+
+        # 스크롤 가능한 폼 영역
+        from PyQt5.QtWidgets import QScrollArea
+        form_scroll = QScrollArea()
+        form_scroll.setWidgetResizable(True)
+        form_scroll.setFrameShape(QFrame.NoFrame)
+        self.form_container = QWidget()
+        self.form_inner_layout = QVBoxLayout(self.form_container)
+        self.form_inner_layout.setSpacing(12)
+        self.form_inner_layout.addStretch()
+        form_scroll.setWidget(self.form_container)
+        form_layout.addWidget(form_scroll)
+
+        form_btn_row = QHBoxLayout()
+        form_btn_row.addStretch()
+        btn_save_form = QPushButton("Save Content")
+        btn_save_form.setMaximumWidth(140)
+        btn_save_form.clicked.connect(self._save_form_to_content)
+        form_btn_row.addWidget(btn_save_form)
+        form_layout.addLayout(form_btn_row)
+
+        self.editor_tabs.addTab(form_widget, "Form Edit")
+
+        # 탭 3: Source (마크다운 원본)
+        source_widget = QWidget()
+        source_layout = QVBoxLayout(source_widget)
+        source_layout.setContentsMargins(0, 0, 0, 0)
+        source_layout.setSpacing(4)
 
         self.content_edit = QTextEdit()
         self.content_edit.setStyleSheet(
@@ -212,25 +244,23 @@ class DocumentEditorWidget(QWidget):
             "font-size:13px; background:#FAFAFA; "
             "border:1px solid #E5E5EA; border-radius:8px; padding:8px; }"
         )
-        self.content_edit.setPlaceholderText(
-            "Markdown format: ## Heading, | Table |, **bold**, - list"
-        )
-        edit_layout.addWidget(self.content_edit)
+        self.content_edit.setPlaceholderText("Markdown source")
+        source_layout.addWidget(self.content_edit)
 
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
-        self.btn_refresh_preview = QPushButton("Refresh Preview")
-        self.btn_refresh_preview.setProperty("secondary", True)
-        self.btn_refresh_preview.setMaximumWidth(160)
-        self.btn_refresh_preview.clicked.connect(self._refresh_preview)
-        btn_row.addWidget(self.btn_refresh_preview)
-        self.btn_save_content = QPushButton("Save Content")
-        self.btn_save_content.setMaximumWidth(140)
-        self.btn_save_content.clicked.connect(self._save_content)
-        btn_row.addWidget(self.btn_save_content)
-        edit_layout.addLayout(btn_row)
+        src_btn_row = QHBoxLayout()
+        src_btn_row.addStretch()
+        btn_refresh = QPushButton("Refresh Preview")
+        btn_refresh.setProperty("secondary", True)
+        btn_refresh.setMaximumWidth(160)
+        btn_refresh.clicked.connect(self._refresh_preview)
+        src_btn_row.addWidget(btn_refresh)
+        btn_save_src = QPushButton("Save Content")
+        btn_save_src.setMaximumWidth(140)
+        btn_save_src.clicked.connect(self._save_content)
+        src_btn_row.addWidget(btn_save_src)
+        source_layout.addLayout(src_btn_row)
 
-        self.editor_tabs.addTab(edit_widget, "Edit")
+        self.editor_tabs.addTab(source_widget, "Source")
         right_layout.addWidget(self.editor_tabs, 1)
 
         # 버전 이력 (접기)
@@ -320,8 +350,11 @@ class DocumentEditorWidget(QWidget):
         except (IndexError, KeyError):
             content = ""
 
-        # 편집기에 마크다운 원본
+        # Source 편집기에 마크다운 원본
         self.content_edit.setPlainText(content)
+
+        # Form Editor 채우기
+        self._build_form_from_content(content)
 
         # 미리보기에 렌더링된 HTML
         if content.strip():
@@ -332,9 +365,8 @@ class DocumentEditorWidget(QWidget):
         else:
             self.preview.setHtml(
                 "<div style='text-align:center;padding:40px;color:#8E8E93;'>"
-                "<h2>No Content / 내용 없음</h2>"
-                "<p>Switch to the <b>Edit</b> tab to start writing.<br>"
-                "<b>편집</b> 탭으로 이동하여 내용을 작성하세요.</p>"
+                "<h2>No Content</h2>"
+                "<p>Switch to <b>Form Edit</b> to start writing.</p>"
                 "</div>"
             )
 
@@ -343,6 +375,172 @@ class DocumentEditorWidget(QWidget):
 
         # 버전 이력 로드
         self._load_version_history(doc_id)
+
+    def _build_form_from_content(self, content):
+        """마크다운 내용을 파싱하여 GUI 폼 위젯으로 변환"""
+        # 기존 폼 위젯 제거
+        while self.form_inner_layout.count() > 1:
+            item = self.form_inner_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        self._form_sections = []  # (type, widget, section_title) 저장
+
+        if not content.strip():
+            lbl = QLabel("No content. Create from Form Edit or Source tab.")
+            lbl.setStyleSheet("color:#8E8E93; padding:20px;")
+            self.form_inner_layout.insertWidget(0, lbl)
+            return
+
+        lines = content.split("\n")
+        i = 0
+        section_idx = 0
+        while i < len(lines):
+            line = lines[i].strip()
+
+            # 섹션 제목 (## 또는 #)
+            if line.startswith("## ") or line.startswith("# "):
+                title = line.lstrip("#").strip()
+                title_label = QLabel(title)
+                title_label.setStyleSheet(
+                    "font-size:14px; font-weight:bold; color:#007AFF; "
+                    "padding:8px 0 2px; border-bottom:1px solid #E5E5EA;"
+                )
+                self.form_inner_layout.insertWidget(section_idx, title_label)
+                self._form_sections.append(("heading", title_label, title))
+                section_idx += 1
+                i += 1
+                continue
+
+            # 설명 텍스트 (괄호로 시작)
+            if line.startswith("(") and line.endswith(")"):
+                desc = QLabel(line)
+                desc.setStyleSheet("color:#8E8E93; font-size:12px; padding:2px 0;")
+                desc.setWordWrap(True)
+                self.form_inner_layout.insertWidget(section_idx, desc)
+                self._form_sections.append(("desc", desc, line))
+                section_idx += 1
+                i += 1
+                continue
+
+            # 테이블 → QTableWidget
+            if line.startswith("|"):
+                table_lines = []
+                while i < len(lines) and lines[i].strip().startswith("|"):
+                    table_lines.append(lines[i].strip())
+                    i += 1
+
+                # 구분선 제거, 셀 파싱
+                data_rows = []
+                for tl in table_lines:
+                    cells = [c.strip() for c in tl.split("|")[1:-1]]
+                    if cells and not all(set(c) <= {"-", ":", " "} for c in cells):
+                        data_rows.append(cells)
+
+                if len(data_rows) >= 1:
+                    headers = data_rows[0]
+                    body = data_rows[1:] if len(data_rows) > 1 else []
+
+                    tw = QTableWidget()
+                    tw.setColumnCount(len(headers))
+                    tw.setHorizontalHeaderLabels(headers)
+                    tw.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                    tw.verticalHeader().setVisible(False)
+                    tw.setRowCount(max(len(body), 3))  # 최소 3행
+
+                    for r, row_cells in enumerate(body):
+                        for c, cell in enumerate(row_cells):
+                            if c < len(headers):
+                                tw.setItem(r, c, QTableWidgetItem(cell))
+
+                    # 빈 행 채우기
+                    for r in range(len(body), tw.rowCount()):
+                        for c in range(len(headers)):
+                            tw.setItem(r, c, QTableWidgetItem(""))
+
+                    row_height = 30
+                    tw.setMinimumHeight(min(row_height * (tw.rowCount() + 1) + 10, 250))
+                    tw.setMaximumHeight(300)
+
+                    self.form_inner_layout.insertWidget(section_idx, tw)
+                    self._form_sections.append(("table", tw, headers))
+                    section_idx += 1
+                continue
+
+            # 코드 블록
+            if line.startswith("```"):
+                code_lines = []
+                i += 1
+                while i < len(lines) and not lines[i].strip().startswith("```"):
+                    code_lines.append(lines[i])
+                    i += 1
+                i += 1  # skip closing ```
+
+                code_edit = QTextEdit()
+                code_edit.setPlainText("\n".join(code_lines))
+                code_edit.setStyleSheet(
+                    "QTextEdit { font-family:monospace; font-size:12px; "
+                    "background:#F2F2F7; border:1px solid #D1D1D6; border-radius:6px; padding:6px; }"
+                )
+                code_edit.setMaximumHeight(150)
+                self.form_inner_layout.insertWidget(section_idx, code_edit)
+                self._form_sections.append(("code", code_edit, ""))
+                section_idx += 1
+                continue
+
+            # 일반 텍스트 (빈 줄, ---, 기타 스킵)
+            if line and line != "---" and not line.startswith("<!--"):
+                text_edit = QLineEdit()
+                text_edit.setText(line)
+                text_edit.setStyleSheet("padding:4px;")
+                self.form_inner_layout.insertWidget(section_idx, text_edit)
+                self._form_sections.append(("text", text_edit, ""))
+                section_idx += 1
+
+            i += 1
+
+    def _save_form_to_content(self):
+        """Form Editor의 내용을 마크다운으로 변환하여 저장"""
+        if not self._selected_doc_id:
+            QMessageBox.warning(self, "Warning", "No document selected.")
+            return
+
+        lines = []
+        for stype, widget, meta in self._form_sections:
+            if stype == "heading":
+                depth = "##" if not meta.startswith("#") else "#"
+                lines.append(f"\n{depth} {meta}\n")
+            elif stype == "desc":
+                lines.append(meta)
+                lines.append("")
+            elif stype == "table":
+                headers = meta
+                lines.append("| " + " | ".join(headers) + " |")
+                lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
+                for r in range(widget.rowCount()):
+                    cells = []
+                    for c in range(widget.columnCount()):
+                        item = widget.item(r, c)
+                        cells.append(item.text() if item else "")
+                    if any(c.strip() for c in cells):  # 빈 행 스킵
+                        lines.append("| " + " | ".join(cells) + " |")
+                lines.append("")
+            elif stype == "code":
+                lines.append("```")
+                lines.append(widget.toPlainText())
+                lines.append("```")
+                lines.append("")
+            elif stype == "text":
+                lines.append(widget.text())
+                lines.append("")
+
+        new_content = "\n".join(lines)
+
+        # Source 편집기와 동기화
+        self.content_edit.setPlainText(new_content)
+
+        # DB에 저장
+        self._save_content()
 
     def _on_font_size_changed(self, size):
         """글자 크기 변경"""
