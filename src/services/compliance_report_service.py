@@ -15,7 +15,7 @@ from src.models.document import DocumentModel
 from src.models.checklist import ChecklistModel
 from src.models.traceability import TraceabilityModel
 from src.utils.constants import (
-    SWE_STAGES, VMODEL_PAIRS, STATUS_COLORS,
+    SWE_STAGES, VMODEL_PAIRS, SEQUENTIAL_PAIRS, STATUS_COLORS,
     APP_NAME, APP_VERSION_FILE,
 )
 
@@ -204,6 +204,37 @@ def _build_report(project_id, phase_id, output_path, conn):
         else:
             vmodel_data[f"{left}-{right}"] = None
 
+    # Sequential traceability data (derives: SWE.1->2, SWE.2->3)
+    sequential_data = {}
+    for src_swe, tgt_swe in SEQUENTIAL_PAIRS.items():
+        s1 = stage_map.get(src_swe)
+        s2 = stage_map.get(tgt_swe)
+        if s1 and s2:
+            completeness = TraceabilityModel.get_completeness_for_pair(
+                s1["id"], s2["id"], conn=conn
+            )
+            links = TraceabilityModel.get_between_stages(
+                s1["id"], s2["id"], conn=conn
+            )
+            docs_src = DocumentModel.get_by_stage(s1["id"], conn=conn)
+            docs_tgt = DocumentModel.get_by_stage(s2["id"], conn=conn)
+            linked_doc_ids = set()
+            for lnk in links:
+                linked_doc_ids.add(lnk["source_document_id"])
+                linked_doc_ids.add(lnk["target_document_id"])
+
+            unlinked_src = [d for d in docs_src if d["id"] not in linked_doc_ids]
+            unlinked_tgt = [d for d in docs_tgt if d["id"] not in linked_doc_ids]
+
+            sequential_data[f"{src_swe}->{tgt_swe}"] = {
+                "completeness": completeness,
+                "links": links,
+                "unlinked_src": unlinked_src,
+                "unlinked_tgt": unlinked_tgt,
+            }
+        else:
+            sequential_data[f"{src_swe}->{tgt_swe}"] = None
+
     # Gap analysis
     gaps = []
     for swe_key in SWE_STAGES:
@@ -271,7 +302,7 @@ def _build_report(project_id, phase_id, output_path, conn):
         _html_cover(project["name"], oem_name, phase_name, gen_date, version),
         _html_executive_summary(overall_pct, total_docs, total_approved, total_pending, total_missing),
         _html_swe_analysis(stage_data),
-        _html_vmodel_traceability(vmodel_data),
+        _html_vmodel_traceability(vmodel_data, sequential_data),
         _html_gap_analysis(gaps),
         _html_conclusion(overall_pct, gaps),
         _html_footer(),
@@ -371,6 +402,10 @@ tr:last-child td {{ border-bottom: none; }}
 }}
 .recommendation {{ padding: 6px 0; padding-left: 20px; position: relative; }}
 .recommendation::before {{ content: "\\25B6"; position: absolute; left: 0; color: #007AFF; font-size: 10px; top: 8px; }}
+details {{ margin: 4px 0; }}
+details summary {{ font-weight: 500; }}
+.vmodel-summary {{ background: #f9f9fb; border-radius: 8px; padding: 16px; margin: 16px 0; }}
+.vmodel-summary td {{ text-align: center; }}
 .page-break {{ page-break-before: always; }}
 
 @media print {{
@@ -489,16 +524,37 @@ def _html_swe_analysis(stage_data):
         if docs:
             parts.append('<h3 style="margin-top:12px">Documents / 문서</h3>')
             parts.append('<table><tr><th>#</th><th>Name / 이름</th><th>Status / 상태</th>'
-                         '<th>Reviewer / 검토자</th><th>Type / 유형</th></tr>')
+                         '<th>Reviewer / 검토자</th><th>Type / 유형</th><th>Reviews / 리뷰</th></tr>')
             for i, d in enumerate(docs, 1):
                 dc = _status_color(d["status"])
+                # Count review records (status transitions indicate reviews)
+                review_count = 1 if d["status"] in ("In Review", "Approved", "Rejected") else 0
                 parts.append(
                     f'<tr><td>{i}</td><td>{_esc(d["name"])}</td>'
                     f'<td><span class="badge" style="background:{dc}">{_esc(d["status"])}</span></td>'
                     f'<td>{_esc(d["reviewer"] or "-")}</td>'
-                    f'<td>{_esc(d["template_type"] or "-")}</td></tr>'
+                    f'<td>{_esc(d["template_type"] or "-")}</td>'
+                    f'<td>{review_count}</td></tr>'
                 )
             parts.append('</table>')
+
+            # Document content previews (collapsible)
+            for i, d in enumerate(docs, 1):
+                try:
+                    content = d["content"] or ""
+                except (IndexError, KeyError):
+                    content = ""
+                preview = content[:500] if content else ""
+                parts.append(f'<details style="margin:4px 0 8px 0">')
+                parts.append(f'<summary style="cursor:pointer;color:#007AFF;font-size:13px">'
+                             f'{_esc(d["name"])} - Content Preview / 내용 미리보기</summary>')
+                if preview:
+                    parts.append(f'<pre style="background:#f9f9fb;padding:10px;border-radius:6px;'
+                                 f'font-size:12px;white-space:pre-wrap;max-height:200px;overflow:auto">'
+                                 f'{_esc(preview)}{"..." if len(content) > 500 else ""}</pre>')
+                else:
+                    parts.append('<p style="color:#8E8E93;font-size:13px;padding:8px">No content / 내용 없음</p>')
+                parts.append('</details>')
         else:
             parts.append('<p style="color:#FF3B30;margin:8px 0">No documents registered / 등록된 문서 없음</p>')
 
@@ -528,12 +584,18 @@ def _html_swe_analysis(stage_data):
     return "\n".join(parts)
 
 
-def _html_vmodel_traceability(vmodel_data):
+def _html_vmodel_traceability(vmodel_data, sequential_data=None):
+    if sequential_data is None:
+        sequential_data = {}
+
     parts = ["""
 <!-- V-Model Traceability / V-모델 추적성 -->
 <div class="section page-break">
 <h2>3. V-Model Traceability Analysis / V-모델 추적성 분석</h2>
 """]
+
+    # --- V-Model Pairs (verifies: left <-> right) ---
+    parts.append('<h3>3.1 V-Model Pairs (Verifies) / V-모델 쌍 (검증)</h3>')
 
     for pair_key, vd in vmodel_data.items():
         left, right = pair_key.split("-")
@@ -572,16 +634,17 @@ def _html_vmodel_traceability(vmodel_data):
         links = vd["links"]
         if links:
             parts.append('<h3 style="margin-top:8px">Linked Documents / 연결된 문서</h3>')
-            parts.append('<table><tr><th>Source / 소스</th><th>Target / 대상</th><th>Type / 유형</th></tr>')
+            parts.append('<table><tr><th>Source / 소스</th><th>&#8594;</th><th>Target / 대상</th><th>Type / 유형</th></tr>')
             for lnk in links:
                 parts.append(
                     f'<tr><td>{_esc(lnk["source_name"])}</td>'
+                    f'<td>&#8594;</td>'
                     f'<td>{_esc(lnk["target_name"])}</td>'
                     f'<td>{_esc(lnk["link_type"] if lnk["link_type"] else "")}</td></tr>'
                 )
             parts.append('</table>')
 
-        # Unlinked documents
+        # Unlinked documents (highlighted in RED)
         unlinked_left = vd["unlinked_left"]
         unlinked_right = vd["unlinked_right"]
         if unlinked_left or unlinked_right:
@@ -590,18 +653,142 @@ def _html_vmodel_traceability(vmodel_data):
             for d in unlinked_left:
                 dc = _status_color(d["status"])
                 parts.append(
-                    f'<tr class="missing"><td>{left}</td><td>{_esc(d["name"])}</td>'
+                    f'<tr style="background:#FFF0F0"><td style="color:#FF3B30;font-weight:600">{left}</td>'
+                    f'<td style="color:#FF3B30">{_esc(d["name"])}</td>'
                     f'<td><span class="badge" style="background:{dc}">{_esc(d["status"])}</span></td></tr>'
                 )
             for d in unlinked_right:
                 dc = _status_color(d["status"])
                 parts.append(
-                    f'<tr class="missing"><td>{right}</td><td>{_esc(d["name"])}</td>'
+                    f'<tr style="background:#FFF0F0"><td style="color:#FF3B30;font-weight:600">{right}</td>'
+                    f'<td style="color:#FF3B30">{_esc(d["name"])}</td>'
                     f'<td><span class="badge" style="background:{dc}">{_esc(d["status"])}</span></td></tr>'
                 )
             parts.append('</table>')
 
         parts.append('</div>')
+
+    # --- Sequential Pairs (derives: SWE.1->2, SWE.2->3) ---
+    if sequential_data:
+        parts.append('<h3 style="margin-top:24px">3.2 Sequential Pairs (Derives) / 순차적 쌍 (도출)</h3>')
+
+        for pair_key, sd in sequential_data.items():
+            src_swe, tgt_swe = pair_key.split("->")
+            src_info = SWE_STAGES[src_swe]
+            tgt_info = SWE_STAGES[tgt_swe]
+
+            parts.append(f'<div class="stage-box">')
+            parts.append(f'<h3>{src_swe} ({src_info["name_en"]}) &#8594; {tgt_swe} ({tgt_info["name_en"]})</h3>')
+            parts.append(f'<p style="color:#6e6e73">{src_info["name_ko"]} &#8594; {tgt_info["name_ko"]}</p>')
+
+            if sd is None:
+                parts.append('<p style="color:#FF9500">One or both stages not available / 단계 미설정</p>')
+                parts.append('</div>')
+                continue
+
+            comp = sd["completeness"]
+            pct = comp["completeness_pct"]
+            clr = _risk_color(pct)
+
+            parts.append(f"""
+<table>
+<tr><th>Metric / 항목</th><th>Value / 값</th></tr>
+<tr><td>Link Count / 링크 수</td><td>{comp['link_count']}</td></tr>
+<tr><td>Coverage / 커버리지</td><td>
+    <div class="progress-bar" style="display:inline-block;width:200px;vertical-align:middle">
+        <div class="progress-fill" style="width:{pct:.0f}%;background:{clr}"></div>
+    </div> {pct:.1f}%
+</td></tr>
+</table>
+""")
+
+            links = sd["links"]
+            if links:
+                parts.append('<table><tr><th>Source / 소스</th><th>&#8594;</th><th>Target / 대상</th><th>Type / 유형</th></tr>')
+                for lnk in links:
+                    parts.append(
+                        f'<tr><td>{_esc(lnk["source_name"])}</td>'
+                        f'<td>&#8594;</td>'
+                        f'<td>{_esc(lnk["target_name"])}</td>'
+                        f'<td>{_esc(lnk["link_type"] if lnk["link_type"] else "derives")}</td></tr>'
+                    )
+                parts.append('</table>')
+
+            # Unlinked docs in sequential pairs
+            unlinked_src = sd.get("unlinked_src", [])
+            unlinked_tgt = sd.get("unlinked_tgt", [])
+            if unlinked_src or unlinked_tgt:
+                parts.append('<h3 style="margin-top:8px;color:#FF3B30">Unlinked Documents / 미연결 문서</h3>')
+                parts.append('<table><tr><th>Stage / 단계</th><th>Document / 문서</th><th>Status / 상태</th></tr>')
+                for d in unlinked_src:
+                    dc = _status_color(d["status"])
+                    parts.append(
+                        f'<tr style="background:#FFF0F0"><td style="color:#FF3B30;font-weight:600">{src_swe}</td>'
+                        f'<td style="color:#FF3B30">{_esc(d["name"])}</td>'
+                        f'<td><span class="badge" style="background:{dc}">{_esc(d["status"])}</span></td></tr>'
+                    )
+                for d in unlinked_tgt:
+                    dc = _status_color(d["status"])
+                    parts.append(
+                        f'<tr style="background:#FFF0F0"><td style="color:#FF3B30;font-weight:600">{tgt_swe}</td>'
+                        f'<td style="color:#FF3B30">{_esc(d["name"])}</td>'
+                        f'<td><span class="badge" style="background:{dc}">{_esc(d["status"])}</span></td></tr>'
+                    )
+                parts.append('</table>')
+
+            parts.append('</div>')
+
+    # --- V-Model Summary Table ---
+    parts.append('<h3 style="margin-top:24px">3.3 V-Model Summary / V-모델 요약</h3>')
+    parts.append('<div class="vmodel-summary">')
+    parts.append('<table>')
+    parts.append('<tr><th>Pair / 쌍</th><th>Type / 유형</th><th>Links / 링크</th>'
+                 '<th>Coverage / 커버리지</th><th>Status / 상태</th></tr>')
+
+    # V-model pairs summary
+    for pair_key, vd in vmodel_data.items():
+        left, right = pair_key.split("-")
+        if vd is None:
+            parts.append(
+                f'<tr><td>{left} &#8596; {right}</td><td>verifies</td>'
+                f'<td>-</td><td>-</td>'
+                f'<td><span class="badge" style="background:#FF9500">N/A</span></td></tr>'
+            )
+        else:
+            comp = vd["completeness"]
+            pct = comp["completeness_pct"]
+            clr = _risk_color(pct)
+            parts.append(
+                f'<tr><td>{left} &#8596; {right}</td><td>verifies</td>'
+                f'<td>{comp["link_count"]}</td>'
+                f'<td><span style="color:{clr};font-weight:600">{pct:.1f}%</span></td>'
+                f'<td><span class="badge" style="background:{clr}">'
+                f'{"OK" if pct >= 80 else "Gap"}</span></td></tr>'
+            )
+
+    # Sequential pairs summary
+    for pair_key, sd in sequential_data.items():
+        src_swe, tgt_swe = pair_key.split("->")
+        if sd is None:
+            parts.append(
+                f'<tr><td>{src_swe} &#8594; {tgt_swe}</td><td>derives</td>'
+                f'<td>-</td><td>-</td>'
+                f'<td><span class="badge" style="background:#FF9500">N/A</span></td></tr>'
+            )
+        else:
+            comp = sd["completeness"]
+            pct = comp["completeness_pct"]
+            clr = _risk_color(pct)
+            parts.append(
+                f'<tr><td>{src_swe} &#8594; {tgt_swe}</td><td>derives</td>'
+                f'<td>{comp["link_count"]}</td>'
+                f'<td><span style="color:{clr};font-weight:600">{pct:.1f}%</span></td>'
+                f'<td><span class="badge" style="background:{clr}">'
+                f'{"OK" if pct >= 80 else "Gap"}</span></td></tr>'
+            )
+
+    parts.append('</table>')
+    parts.append('</div>')
 
     parts.append('</div>')
     return "\n".join(parts)
