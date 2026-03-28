@@ -1,10 +1,10 @@
-"""추적성 상세 뷰 - 문서 레벨 다대다 연결"""
+"""추적성 상세 뷰 - 문서 레벨 다대다 연결 (드래그 앤 드롭 지원)"""
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QGraphicsView, QGraphicsScene, QGraphicsRectItem,
-    QGraphicsTextItem, QPushButton, QComboBox
+    QGraphicsTextItem, QPushButton, QComboBox, QGraphicsLineItem
 )
-from PyQt5.QtCore import Qt, QRectF
+from PyQt5.QtCore import Qt, QRectF, QPointF, QLineF
 from PyQt5.QtGui import QPen, QColor, QBrush, QFont, QPainter, QPainterPath
 
 from src.models.database import get_connection
@@ -14,6 +14,78 @@ from src.models.traceability import TraceabilityModel
 from src.utils.constants import SWE_STAGES, STATUS_COLORS, DocumentStatus, LinkType
 
 
+class DraggableDocCard(QGraphicsRectItem):
+    """드래그 가능한 문서 카드 - 드래그로 추적성 링크 생성"""
+
+    def __init__(self, x, y, w, h, doc_id, side, dialog, parent=None):
+        super().__init__(x, y, w, h, parent)
+        self.doc_id = doc_id
+        self.side = side  # "left" or "right"
+        self.dialog = dialog
+        self.setAcceptHoverEvents(True)
+        self.setAcceptDrops(True)
+        self._is_hover = False
+        self._drag_line = None
+
+    def hoverEnterEvent(self, event):
+        """마우스 오버 시 하이라이트"""
+        self._is_hover = True
+        self.setPen(QPen(QColor("#0A84FF"), 3))
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        """마우스 떠날 때 원래 스타일 복원"""
+        self._is_hover = False
+        self.dialog._restore_card_pen(self)
+        super().hoverLeaveEvent(event)
+
+    def mousePressEvent(self, event):
+        """드래그 시작"""
+        if event.button() == Qt.LeftButton:
+            self.dialog._drag_source = self
+            center = self.rect().center() + self.pos()
+            # Create temporary drag line
+            self._drag_line = QGraphicsLineItem(
+                QLineF(center, event.scenePos())
+            )
+            self._drag_line.setPen(QPen(QColor("#0A84FF"), 2, Qt.DashLine))
+            self.scene().addItem(self._drag_line)
+            # Highlight valid drop targets (opposite side cards)
+            self.dialog._highlight_drop_targets(self.side)
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """드래그 중 라인 업데이트"""
+        if self._drag_line:
+            center = self.rect().center() + self.pos()
+            self._drag_line.setLine(QLineF(center, event.scenePos()))
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """드롭 - 타겟 카드 위에서 놓으면 링크 생성"""
+        if self._drag_line:
+            # Remove drag line
+            self.scene().removeItem(self._drag_line)
+            self._drag_line = None
+
+            # Find card under drop point
+            target = self.dialog._find_card_at(event.scenePos())
+            if target and target is not self and target.side != self.side:
+                # Create traceability link
+                self.dialog._create_drag_link(self.doc_id, target.doc_id)
+
+            # Reset highlights
+            self.dialog._reset_highlights()
+            self.dialog._drag_source = None
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+
 class TraceabilityDetailDialog(QDialog):
     """두 단계 사이의 문서 레벨 추적성 상세 뷰"""
 
@@ -21,6 +93,9 @@ class TraceabilityDetailDialog(QDialog):
         super().__init__(parent)
         self.stage_id_1 = stage_id_1
         self.stage_id_2 = stage_id_2
+        self._drag_source = None
+        self._doc_cards = []  # list of DraggableDocCard
+        self._card_original_pens = {}  # card -> original QPen
         self.setWindowTitle("Traceability Detail / 추적성 상세")
         self.setMinimumSize(800, 500)
         self.resize(900, 600)
