@@ -7,6 +7,8 @@ from src.models.document import DocumentModel
 from src.models.checklist import ChecklistModel
 from src.models.traceability import TraceabilityModel
 from src.models.schedule import ScheduleModel
+from src.models.phase import PhaseModel
+from src.models.phase_log import PhaseLogModel
 from src.utils.constants import SWE_STAGES
 from src.utils.yaml_helpers import load_yaml, dump_yaml_string
 
@@ -22,7 +24,7 @@ def _load_oem_yaml(filename):
         return ""
 
 
-def _create_stages_from_config(project_id, config_yaml_str, conn):
+def _create_stages_from_config(project_id, config_yaml_str, conn, phase_id=None):
     """OEM 설정에 기반하여 단계/문서/체크리스트 생성"""
     from src.utils.yaml_helpers import load_yaml_string
     config = load_yaml_string(config_yaml_str) if config_yaml_str else {}
@@ -36,7 +38,7 @@ def _create_stages_from_config(project_id, config_yaml_str, conn):
         if stage_conf.get("enabled", True) is False:
             continue
 
-        stage_id = StageModel.create(project_id, swe_level, conn=conn)
+        stage_id = StageModel.create(project_id, swe_level, phase_id=phase_id, conn=conn)
         stage_ids[swe_level] = stage_id
 
         # 문서 생성
@@ -104,6 +106,45 @@ def _create_stages_from_config(project_id, config_yaml_str, conn):
     return stage_ids, doc_ids
 
 
+def _complete_all_stages(stage_ids, doc_ids, user, conn):
+    """Helper: mark all stages Completed, all docs Approved, all checklists checked."""
+    for swe in ["SWE.1", "SWE.2", "SWE.3", "SWE.4", "SWE.5", "SWE.6"]:
+        if swe in stage_ids:
+            StageModel.update(stage_ids[swe], status="Completed", conn=conn)
+            for did in doc_ids.get(swe, []):
+                DocumentModel.update(did, status="Approved", conn=conn)
+            items = ChecklistModel.get_by_stage(stage_ids[swe], conn)
+            for item in items:
+                ChecklistModel.toggle(item["id"], user, conn)
+
+
+def _create_full_traceability(doc_ids, conn):
+    """Helper: create standard V-model traceability links for a phase."""
+    # SWE.1 <-> SWE.6
+    if doc_ids.get("SWE.1") and doc_ids.get("SWE.6"):
+        TraceabilityModel.create(
+            doc_ids["SWE.1"][0], doc_ids["SWE.6"][0],
+            "verifies", "요구사항 적격성 시험 추적", conn
+        )
+        if len(doc_ids["SWE.1"]) > 1 and len(doc_ids["SWE.6"]) > 1:
+            TraceabilityModel.create(
+                doc_ids["SWE.1"][1], doc_ids["SWE.6"][1],
+                "verifies", "검토 보고서 추적", conn
+            )
+    # SWE.2 <-> SWE.5
+    if doc_ids.get("SWE.2") and doc_ids.get("SWE.5"):
+        TraceabilityModel.create(
+            doc_ids["SWE.2"][0], doc_ids["SWE.5"][0],
+            "verifies", "아키텍처 통합 시험 추적", conn
+        )
+    # SWE.3 <-> SWE.4
+    if doc_ids.get("SWE.3") and doc_ids.get("SWE.4"):
+        TraceabilityModel.create(
+            doc_ids["SWE.3"][0], doc_ids["SWE.4"][0],
+            "verifies", "상세 설계 단위 검증 추적", conn
+        )
+
+
 def create_demo_data(conn):
     """데모 데이터 생성"""
     # === OEM 생성 ===
@@ -121,57 +162,53 @@ def create_demo_data(conn):
         "EPS 전동 조향 시스템 소프트웨어 개발",
         "Active", "2026-01-15", "2026-12-31", conn
     )
-    stage_ids_1, doc_ids_1 = _create_stages_from_config(proj1_id, hkmc_yaml, conn)
 
-    # SWE.1 완료, SWE.2 진행중
-    if "SWE.1" in stage_ids_1:
-        StageModel.update(stage_ids_1["SWE.1"], status="Completed", conn=conn)
-        for did in doc_ids_1.get("SWE.1", []):
-            DocumentModel.update(did, status="Approved", conn=conn)
-        # 체크리스트 모두 체크
-        items = ChecklistModel.get_by_stage(stage_ids_1["SWE.1"], conn)
-        for item in items:
-            ChecklistModel.toggle(item["id"], "Demo User", conn)
+    # --- Mcar phase (ASPICE 100% 완료) ---
+    mcar_phase_id = PhaseModel.create(proj1_id, "Mcar", "Mcar 개발 단계 - 100% 완료", 1, conn=conn)
+    stage_ids_mcar, doc_ids_mcar = _create_stages_from_config(
+        proj1_id, hkmc_yaml, conn, phase_id=mcar_phase_id
+    )
+    _complete_all_stages(stage_ids_mcar, doc_ids_mcar, "HKMC Engineer", conn)
+    _create_full_traceability(doc_ids_mcar, conn)
+    PhaseLogModel.create(mcar_phase_id, "created", "phase", mcar_phase_id,
+                         "Mcar phase created - ASPICE 100% complete", "System", conn=conn)
 
-    if "SWE.2" in stage_ids_1:
-        StageModel.update(stage_ids_1["SWE.2"], status="In Progress", conn=conn)
-        docs = doc_ids_1.get("SWE.2", [])
+    # --- P1 phase (진행중, inherited from Mcar) ---
+    p1_phase_id = PhaseModel.create(proj1_id, "P1", "P1 개발 단계 - 진행중", 2,
+                                     inherited_from_phase_id=mcar_phase_id, conn=conn)
+    stage_ids_p1, doc_ids_p1 = _create_stages_from_config(
+        proj1_id, hkmc_yaml, conn, phase_id=p1_phase_id
+    )
+
+    # P1: SWE.1-2 Completed, SWE.3 In Progress
+    for swe in ["SWE.1", "SWE.2"]:
+        if swe in stage_ids_p1:
+            StageModel.update(stage_ids_p1[swe], status="Completed", conn=conn)
+            for did in doc_ids_p1.get(swe, []):
+                DocumentModel.update(did, status="Approved", conn=conn)
+            items = ChecklistModel.get_by_stage(stage_ids_p1[swe], conn)
+            for item in items:
+                ChecklistModel.toggle(item["id"], "HKMC Engineer", conn)
+
+    if "SWE.3" in stage_ids_p1:
+        StageModel.update(stage_ids_p1["SWE.3"], status="In Progress", conn=conn)
+        docs = doc_ids_p1.get("SWE.3", [])
         if docs:
             DocumentModel.update(docs[0], status="In Review", conn=conn)
 
-    # 추적성 링크: SWE.1 ↔ SWE.6
-    if doc_ids_1.get("SWE.1") and doc_ids_1.get("SWE.6"):
-        TraceabilityModel.create(
-            doc_ids_1["SWE.1"][0], doc_ids_1["SWE.6"][0],
-            "verifies", "요구사항 적격성 시험 추적", conn
-        )
-        if len(doc_ids_1["SWE.1"]) > 1 and len(doc_ids_1["SWE.6"]) > 1:
-            TraceabilityModel.create(
-                doc_ids_1["SWE.1"][1], doc_ids_1["SWE.6"][1],
-                "verifies", "검토 보고서 추적", conn
-            )
+    # P1 traceability
+    _create_full_traceability(doc_ids_p1, conn)
 
-    # SWE.2 ↔ SWE.5
-    if doc_ids_1.get("SWE.2") and doc_ids_1.get("SWE.5"):
-        TraceabilityModel.create(
-            doc_ids_1["SWE.2"][0], doc_ids_1["SWE.5"][0],
-            "verifies", "아키텍처 통합 시험 추적", conn
-        )
-
-    # SWE.3 ↔ SWE.4
-    if doc_ids_1.get("SWE.3") and doc_ids_1.get("SWE.4"):
-        TraceabilityModel.create(
-            doc_ids_1["SWE.3"][0], doc_ids_1["SWE.4"][0],
-            "verifies", "상세 설계 단위 검증 추적", conn
-        )
+    PhaseLogModel.create(p1_phase_id, "inherited", "phase", p1_phase_id,
+                         "P1 phase inherited from Mcar", "System", conn=conn)
 
     # 마일스톤
     ScheduleModel.create(proj1_id, "SWE.1 Requirements Complete", "2026-03-01",
-                         stage_ids_1.get("SWE.1"), "Completed", conn)
+                         stage_ids_mcar.get("SWE.1"), "Completed", conn)
     ScheduleModel.create(proj1_id, "SWE.2 Architecture Review", "2026-05-01",
-                         stage_ids_1.get("SWE.2"), "Pending", conn)
+                         stage_ids_p1.get("SWE.2"), "Completed", conn)
     ScheduleModel.create(proj1_id, "SWE.6 Final Qualification", "2026-11-30",
-                         stage_ids_1.get("SWE.6"), "Pending", conn)
+                         stage_ids_p1.get("SWE.6"), "Pending", conn)
 
     # === 프로젝트 2: VW BRAKE 시스템 ===
     proj2_id = ProjectModel.create(
@@ -179,37 +216,46 @@ def create_demo_data(conn):
         "ABS/ESC 브레이크 제어 시스템 소프트웨어",
         "Active", "2026-02-01", "2027-03-31", conn
     )
-    stage_ids_2, doc_ids_2 = _create_stages_from_config(proj2_id, vw_yaml, conn)
 
-    # SWE.1 완료, SWE.2 완료, SWE.3 진행중
+    # --- A-Muster phase (완료) ---
+    a_muster_id = PhaseModel.create(proj2_id, "A-Muster", "A-Muster 개발 단계 - 완료", 1, conn=conn)
+    stage_ids_am, doc_ids_am = _create_stages_from_config(
+        proj2_id, vw_yaml, conn, phase_id=a_muster_id
+    )
+    _complete_all_stages(stage_ids_am, doc_ids_am, "VW Engineer", conn)
+    _create_full_traceability(doc_ids_am, conn)
+    PhaseLogModel.create(a_muster_id, "created", "phase", a_muster_id,
+                         "A-Muster phase created - fully complete", "System", conn=conn)
+
+    # --- B-Muster phase (진행중, inherited from A-Muster) ---
+    b_muster_id = PhaseModel.create(proj2_id, "B-Muster", "B-Muster 개발 단계 - 진행중", 2,
+                                     inherited_from_phase_id=a_muster_id, conn=conn)
+    stage_ids_bm, doc_ids_bm = _create_stages_from_config(
+        proj2_id, vw_yaml, conn, phase_id=b_muster_id
+    )
+
+    # B-Muster: SWE.1-2 Completed (inherited), SWE.3 In Progress
     for swe in ["SWE.1", "SWE.2"]:
-        if swe in stage_ids_2:
-            StageModel.update(stage_ids_2[swe], status="Completed", conn=conn)
-            for did in doc_ids_2.get(swe, []):
+        if swe in stage_ids_bm:
+            StageModel.update(stage_ids_bm[swe], status="Completed", conn=conn)
+            for did in doc_ids_bm.get(swe, []):
                 DocumentModel.update(did, status="Approved", conn=conn)
-            items = ChecklistModel.get_by_stage(stage_ids_2[swe], conn)
+            items = ChecklistModel.get_by_stage(stage_ids_bm[swe], conn)
             for item in items:
                 ChecklistModel.toggle(item["id"], "VW Engineer", conn)
 
-    if "SWE.3" in stage_ids_2:
-        StageModel.update(stage_ids_2["SWE.3"], status="In Progress", conn=conn)
+    if "SWE.3" in stage_ids_bm:
+        StageModel.update(stage_ids_bm["SWE.3"], status="In Progress", conn=conn)
 
-    # 추적성 링크
-    if doc_ids_2.get("SWE.1") and doc_ids_2.get("SWE.6"):
-        TraceabilityModel.create(
-            doc_ids_2["SWE.1"][0], doc_ids_2["SWE.6"][0],
-            "verifies", "Requirements to qualification test", conn
-        )
-    if doc_ids_2.get("SWE.2") and doc_ids_2.get("SWE.5"):
-        TraceabilityModel.create(
-            doc_ids_2["SWE.2"][0], doc_ids_2["SWE.5"][0],
-            "verifies", "Architecture to integration test", conn
-        )
+    _create_full_traceability(doc_ids_bm, conn)
+
+    PhaseLogModel.create(b_muster_id, "inherited", "phase", b_muster_id,
+                         "B-Muster phase inherited from A-Muster", "System", conn=conn)
 
     ScheduleModel.create(proj2_id, "SWE.1 Complete", "2026-04-15",
-                         stage_ids_2.get("SWE.1"), "Completed", conn)
+                         stage_ids_am.get("SWE.1"), "Completed", conn)
     ScheduleModel.create(proj2_id, "SWE.3 Code Freeze", "2026-08-01",
-                         stage_ids_2.get("SWE.3"), "Pending", conn)
+                         stage_ids_bm.get("SWE.3"), "Pending", conn)
 
     # === 프로젝트 3: GM Navigation ===
     proj3_id = ProjectModel.create(
@@ -217,17 +263,25 @@ def create_demo_data(conn):
         "차량 내비게이션 소프트웨어 개발",
         "Active", "2026-03-01", "2027-06-30", conn
     )
-    stage_ids_3, doc_ids_3 = _create_stages_from_config(proj3_id, gm_yaml, conn)
 
-    # SWE.1만 진행중
-    if "SWE.1" in stage_ids_3:
-        StageModel.update(stage_ids_3["SWE.1"], status="In Progress", conn=conn)
-        docs = doc_ids_3.get("SWE.1", [])
+    # --- DV phase (시작) ---
+    dv_phase_id = PhaseModel.create(proj3_id, "DV", "DV 개발 단계 - 시작", 1, conn=conn)
+    stage_ids_dv, doc_ids_dv = _create_stages_from_config(
+        proj3_id, gm_yaml, conn, phase_id=dv_phase_id
+    )
+
+    # DV: SWE.1 In Progress only
+    if "SWE.1" in stage_ids_dv:
+        StageModel.update(stage_ids_dv["SWE.1"], status="In Progress", conn=conn)
+        docs = doc_ids_dv.get("SWE.1", [])
         if docs:
             DocumentModel.update(docs[0], status="In Review", conn=conn)
 
+    PhaseLogModel.create(dv_phase_id, "created", "phase", dv_phase_id,
+                         "DV phase created - SWE.1 in progress", "System", conn=conn)
+
     ScheduleModel.create(proj3_id, "SWE.1 Requirements Review", "2026-05-15",
-                         stage_ids_3.get("SWE.1"), "Pending", conn)
+                         stage_ids_dv.get("SWE.1"), "Pending", conn)
     ScheduleModel.create(proj3_id, "Project Kickoff Complete", "2026-03-15",
                          None, "Completed", conn)
 

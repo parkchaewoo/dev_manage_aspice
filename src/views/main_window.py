@@ -26,6 +26,7 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self.version = version
         self.current_project_id = None
+        self.current_phase_id = None
         self.current_stage_id = None
         self.current_theme = get_saved_theme()
         self.setWindowTitle(f"ASPICE Process Manager v{version}")
@@ -86,6 +87,7 @@ class MainWindow(QMainWindow):
         # 트리 선택 시그널
         self.project_tree.oem_selected.connect(self._on_oem_selected)
         self.project_tree.project_selected.connect(self._on_project_selected)
+        self.project_tree.phase_selected.connect(self._on_phase_selected)
         self.project_tree.stage_selected.connect(self._on_stage_clicked)
 
         # 가이드 패널 독
@@ -117,6 +119,10 @@ class MainWindow(QMainWindow):
         self.act_matrix = QAction("Traceability", self)
         self.act_matrix.triggered.connect(self._show_trace_matrix)
         toolbar.addAction(self.act_matrix)
+
+        self.act_report = QAction("Generate ASPICE Report", self)
+        self.act_report.triggered.connect(self._generate_aspice_report)
+        toolbar.addAction(self.act_report)
 
         # Search input in toolbar
         toolbar.addSeparator()
@@ -150,6 +156,7 @@ class MainWindow(QMainWindow):
         # Project 메뉴
         project_menu = menubar.addMenu("Project")
         project_menu.addAction("New Project...", self._new_project)
+        project_menu.addAction("New Phase...", self._new_phase)
 
         # OEM 메뉴
         oem_menu = menubar.addMenu("OEM")
@@ -205,8 +212,23 @@ class MainWindow(QMainWindow):
     def _on_oem_selected(self, oem_id):
         self.status_bar.showMessage(f"OEM selected: {oem_id}")
 
+    def _on_phase_selected(self, phase_id):
+        """Handle phase selection from tree."""
+        self.current_phase_id = phase_id
+        from src.models.phase import PhaseModel
+        phase = PhaseModel.get_by_id(phase_id)
+        if phase:
+            self.current_project_id = phase["project_id"]
+            # Load vmodel/schedule/trace for the project (phase-filtered via stages)
+            self.vmodel_view.load_project(phase["project_id"], phase_id=phase_id)
+            self.stack.setCurrentIndex(2)
+            self.status_bar.showMessage(
+                f"Phase: {phase['name']} / 개발 단계 선택됨"
+            )
+
     def _on_project_selected(self, project_id):
         self.current_project_id = project_id
+        self.current_phase_id = None
         self.dashboard.load_project(project_id)
         self.stack.setCurrentIndex(0)
         self.status_bar.showMessage(f"Project loaded / 프로젝트 로드됨")
@@ -221,6 +243,19 @@ class MainWindow(QMainWindow):
     def _new_project(self):
         from src.views.new_project_dialog import NewProjectDialog
         dialog = NewProjectDialog(self)
+        if dialog.exec_():
+            self.refresh_all()
+
+    def _new_phase(self):
+        """Open new phase dialog for current project."""
+        if not self.current_project_id:
+            QMessageBox.information(
+                self, "No Project Selected",
+                "Please select a project first.\n프로젝트를 먼저 선택해주세요."
+            )
+            return
+        from src.views.new_phase_dialog import NewPhaseDialog
+        dialog = NewPhaseDialog(self.current_project_id, parent=self)
         if dialog.exec_():
             self.refresh_all()
 
@@ -264,6 +299,137 @@ class MainWindow(QMainWindow):
             )
         except Exception:
             pass  # DB may not be initialized yet
+
+    def _open_search(self):
+        """Open search popup below the search input."""
+        text = self.search_input.text().strip()
+        if text:
+            self.search_widget.search_input.setText(text)
+            pos = self.search_input.mapToGlobal(
+                QPoint(0, self.search_input.height())
+            )
+            self.search_widget.show_at(pos)
+
+    def _on_search_result(self, result_type, result_id):
+        """Handle search result click - navigate to the item."""
+        if result_type == "document":
+            from src.models.document import DocumentModel
+            doc = DocumentModel.get_by_id(result_id)
+            if doc:
+                self._on_stage_clicked(doc["stage_id"])
+        elif result_type == "checklist":
+            conn = get_connection()
+            item = conn.execute(
+                "SELECT stage_id FROM checklist_items WHERE id = ?", (result_id,)
+            ).fetchone()
+            conn.close()
+            if item:
+                self._on_stage_clicked(item["stage_id"])
+        self.status_bar.showMessage(f"Navigated to {result_type} #{result_id}")
+
+    def _backup_database(self):
+        """Backup SQLite database to a file."""
+        from src.services.backup_service import backup_database
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Backup Database", "", "SQLite Database (*.db);;All Files (*)"
+        )
+        if path:
+            try:
+                backup_database(path)
+                QMessageBox.information(self, "Backup", f"Database backed up to:\n{path}")
+            except Exception as e:
+                QMessageBox.warning(self, "Backup Error", str(e))
+
+    def _restore_database(self):
+        """Restore SQLite database from a backup file."""
+        from src.services.backup_service import restore_database
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Restore Database", "", "SQLite Database (*.db);;All Files (*)"
+        )
+        if path:
+            reply = QMessageBox.question(
+                self, "Restore Database",
+                "This will replace the current database with the backup.\n"
+                "All current data will be lost. Continue?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                try:
+                    restore_database(path)
+                    QMessageBox.information(
+                        self, "Restore",
+                        "Database restored successfully.\nPlease restart the application."
+                    )
+                    self.refresh_all()
+                except Exception as e:
+                    QMessageBox.warning(self, "Restore Error", str(e))
+
+    def _export_json(self):
+        """Export all data as JSON."""
+        from src.services.backup_service import export_to_json
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export as JSON", "", "JSON Files (*.json);;All Files (*)"
+        )
+        if path:
+            try:
+                export_to_json(path)
+                QMessageBox.information(self, "Export", f"Data exported to:\n{path}")
+            except Exception as e:
+                QMessageBox.warning(self, "Export Error", str(e))
+
+    def _import_json(self):
+        """Import data from JSON file."""
+        from src.services.backup_service import import_from_json
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import from JSON", "", "JSON Files (*.json);;All Files (*)"
+        )
+        if path:
+            reply = QMessageBox.question(
+                self, "Import from JSON",
+                "This will replace ALL current data with the imported data.\n"
+                "All current data will be lost. Continue?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                try:
+                    import_from_json(path)
+                    QMessageBox.information(self, "Import", "Data imported successfully.")
+                    self.refresh_all()
+                except Exception as e:
+                    QMessageBox.warning(self, "Import Error", str(e))
+
+    def _generate_aspice_report(self):
+        """Generate ASPICE compliance report as HTML file."""
+        if not self.current_project_id:
+            QMessageBox.information(
+                self, "No Project Selected",
+                "Please select a project first.\n프로젝트를 먼저 선택해주세요."
+            )
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save ASPICE Report / ASPICE 보고서 저장",
+            "", "HTML Files (*.html);;All Files (*)"
+        )
+        if path:
+            try:
+                from src.services.compliance_report_service import generate_compliance_report
+                generate_compliance_report(
+                    self.current_project_id,
+                    phase_id=self.current_phase_id,
+                    output_path=path,
+                )
+                QMessageBox.information(
+                    self, "Report Generated / 보고서 생성 완료",
+                    f"ASPICE compliance report saved to:\n"
+                    f"ASPICE 준수 보고서 저장 완료:\n{path}"
+                )
+                self.status_bar.showMessage(
+                    "ASPICE report generated / ASPICE 보고서 생성 완료"
+                )
+            except Exception as e:
+                QMessageBox.warning(
+                    self, "Report Error / 보고서 오류", str(e)
+                )
 
     def refresh_all(self):
         """전체 새로고침"""

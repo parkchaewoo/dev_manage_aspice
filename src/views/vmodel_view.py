@@ -69,7 +69,7 @@ class VModelWidget(QWidget):
         hint.setAlignment(Qt.AlignCenter)
         layout.addWidget(hint)
 
-    def load_project(self, project_id):
+    def load_project(self, project_id, phase_id=None):
         """프로젝트의 V-model 다이어그램 로드"""
         self.project_id = project_id
         self.scene.clear()
@@ -81,11 +81,23 @@ class VModelWidget(QWidget):
             return
 
         oem = OemModel.get_by_id(project["oem_id"], conn)
-        self.title_label.setText(
-            f"V-Model: {oem['name']} > {project['name']}"
-        )
 
-        stages = StageModel.get_by_project(project_id, conn)
+        if phase_id:
+            from src.models.phase import PhaseModel
+            phase = PhaseModel.get_by_id(phase_id, conn)
+            phase_name = phase["name"] if phase else ""
+            self.title_label.setText(
+                f"V-Model: {oem['name']} > {project['name']} > {phase_name}"
+            )
+        else:
+            self.title_label.setText(
+                f"V-Model: {oem['name']} > {project['name']}"
+            )
+
+        if phase_id:
+            stages = StageModel.get_by_phase(phase_id, conn)
+        else:
+            stages = StageModel.get_by_project(project_id, conn)
         stage_map = {s["swe_level"]: s for s in stages}
 
         # V자 배치 좌표
@@ -188,7 +200,8 @@ class VModelWidget(QWidget):
         conn.close()
 
         # 전체 장면에 맞추기
-        self.view.fitInView(self.scene.sceneRect().adjusted(-30, -30, 30, 30), Qt.KeepAspectRatio)
+        if self.scene.items():
+            self.view.fitInView(self.scene.sceneRect().adjusted(-30, -30, 30, 30), Qt.KeepAspectRatio)
 
     def _on_trace_clicked(self, stage_id_1, stage_id_2):
         """추적성 라인 클릭 시 상세 뷰"""

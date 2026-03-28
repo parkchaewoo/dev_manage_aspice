@@ -1,6 +1,8 @@
 oem_name: "General Motors (GM)"
 description: "GM-specific ASPICE configuration. Aligned with GM Global Product Development Process (GPDP), GM Global Requirements, and GM-specific quality standards."
 
+phases: ["DV", "PV", "PP", "MP"]
+
 stages:
   SWE.1:
     enabled: true

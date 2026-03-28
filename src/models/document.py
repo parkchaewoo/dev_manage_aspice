@@ -5,14 +5,14 @@ from src.models.database import get_connection
 class DocumentModel:
     @staticmethod
     def create(stage_id, name, template_type="", file_path="",
-               status="Draft", conn=None):
+               status="Draft", reviewer="", notes="", conn=None):
         should_close = conn is None
         if conn is None:
             conn = get_connection()
         cursor = conn.execute(
-            """INSERT INTO documents (stage_id, name, template_type, file_path, status)
-               VALUES (?, ?, ?, ?, ?)""",
-            (stage_id, name, template_type, file_path, status)
+            """INSERT INTO documents (stage_id, name, template_type, file_path, status, reviewer, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (stage_id, name, template_type, file_path, status, reviewer, notes)
         )
         conn.commit()
         did = cursor.lastrowid

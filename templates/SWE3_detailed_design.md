@@ -2,256 +2,189 @@
 # 소프트웨어 상세 설계서
 
 ---
+<!-- GUIDE: SWE.2 아키텍처를 기반으로 각 모듈의 상세 설계와 코드를 기술합니다 -->
 
 | Field / 항목 | Value / 값 |
 |---|---|
-| Project Name / 프로젝트명 | {project_name} |
+| Project Name | {project_name} |
 | OEM | {oem_name} |
-| Document ID / 문서 ID | {document_id} |
-| Version / 버전 | {version} |
-| Date / 날짜 | {date} |
-| Author / 작성자 | {author} |
-| Reviewer / 검토자 | {reviewer} |
-| Approver / 승인자 | {approver} |
-| Status / 상태 | {status} |
-| Classification / 보안등급 | {classification} |
+| Document ID | {document_id} |
+| Version | 0.1 |
+| Date | {date} |
+| Author | |
+| Status | Draft |
 
----
-
-## Revision History / 개정 이력
-
-| Version / 버전 | Date / 날짜 | Author / 작성자 | Description / 설명 |
-|---|---|---|---|
-| {version} | {date} | {author} | {change_description} |
-
----
-
-## 1. Introduction / 서론
-
-### 1.1 Purpose / 목적
-
-This document provides the detailed design for software units of {project_name} developed for {oem_name}. It refines the architecture defined in the SAD into implementable unit specifications.
-
-본 문서는 {oem_name}을 위해 개발된 {project_name}의 소프트웨어 유닛 상세 설계를 제공합니다. SAD에서 정의된 아키텍처를 구현 가능한 유닛 명세로 상세화합니다.
-
-### 1.2 Scope / 범위
-
-{scope_description}
-
-### 1.3 Definitions and Abbreviations / 용어 정의 및 약어
-
-| Term / 용어 | Definition / 정의 |
+## Input Artifacts / 입력 산출물
+| Artifact | Source |
 |---|---|
-| SDD | Software Detailed Design Document / 소프트웨어 상세 설계서 |
-| SWE.3 | Software Detailed Design and Unit Construction / 소프트웨어 상세 설계 및 유닛 구현 |
-| | |
+| SW Architecture Design (SWE.2) | SWE.2 |
+| Coding Guidelines (MISRA-C) | Quality |
 
-### 1.4 References / 참고 문서
-
-| ID | Document / 문서 | Version / 버전 |
-|---|---|---|
-| [REF-01] | Software Architecture Description (SWE.2) / SAD | |
-| [REF-02] | Software Requirements Specification (SWE.1) / SRS | |
-| [REF-03] | Coding Guidelines / 코딩 가이드라인 | |
-| | | |
+## Output Artifacts / 출력 산출물
+| Artifact | Target |
+|---|---|
+| Detailed Design (this) + Source Code | SWE.4 Unit Verification |
 
 ---
 
-## 2. Design Overview / 설계 개요
+## 1. Module Design / 모듈 설계
 
-### 2.1 Design Approach / 설계 접근 방식
+### 1.1 ControlLogic Module / 제어 로직 모듈
+- **Purpose / 목적**: EPS 보조 토크 계산 (PID 제어)
+- **ASIL**: B
+- **Dependencies**: SensorInput, CommManager
 
-| Approach / 접근 방식 | Description / 설명 |
-|---|---|
-| Design Method / 설계 방법 | Model-based (Simulink) / Hand-coded / Mixed |
-| Code Generation Tool / 코드 생성 도구 | {code_gen_tool} |
-| Target Language / 대상 언어 | C / C++ |
-| Coding Standard / 코딩 표준 | MISRA-C:2012 |
+### 1.2 SensorInput Module / 센서 입력 모듈
+- **Purpose**: 센서 데이터 읽기, 필터링, 유효성 검사
+- **ASIL**: B
 
-### 2.2 Unit Decomposition Summary / 유닛 분해 요약
-
-| Unit ID / 유닛 ID | Unit Name / 유닛명 | Parent Component / 상위 컴포넌트 | Source File / 소스 파일 | Description / 설명 |
-|---|---|---|---|---|
-| UNIT-001 | | SWC-001 | | |
-| UNIT-002 | | SWC-001 | | |
-| UNIT-003 | | SWC-002 | | |
-| | | | | |
+### 1.3 SafetyMonitor Module / 안전 감시 모듈
+- **Purpose**: 시스템 감시, 고장 감지, 안전 상태 관리
+- **ASIL**: D
 
 ---
 
-## 3. Detailed Unit Designs / 상세 유닛 설계
+## 2. Function Specification / 함수 사양
+<!-- GUIDE: 각 함수의 입력, 출력, 사전/사후 조건을 명시하세요 -->
 
-### 3.1 UNIT-001: {unit_name}
-
-#### 3.1.1 Overview / 개요
-
-| Attribute / 속성 | Value / 값 |
-|---|---|
-| Unit ID / 유닛 ID | UNIT-001 |
-| Unit Name / 유닛명 | {unit_name} |
-| Parent Component / 상위 컴포넌트 | {parent_component_id} |
-| Source File / 소스 파일 | {source_file} |
-| Header File / 헤더 파일 | {header_file} |
-| ASIL | {asil_level} |
-| Description / 설명 | {unit_description} |
-
-#### 3.1.2 Interface / 인터페이스
-
-**Input Parameters / 입력 매개변수:**
-
-| Name / 이름 | Type / 유형 | Range / 범위 | Unit / 단위 | Description / 설명 |
+| Function | Input | Output | PreCondition | PostCondition |
 |---|---|---|---|---|
-| {param_name} | {data_type} | {min} ~ {max} | | |
-| | | | | |
+| CalcAssistTorque() | angle, speed, mode | torque (Nm) | Sensors valid | -12.0 ≤ torque ≤ 12.0 |
+| ReadSteeringAngle() | - | angle (deg) | ADC initialized | -720 ≤ angle ≤ 720 |
+| CheckSensorValidity() | raw_value, range | is_valid (bool) | - | fault flag updated |
+| UpdateSafetyState() | fault_mask | new_state | All monitors run | State transition logged |
+| WriteDtc() | dtc_code, status | success (bool) | NVM ready | DTC stored in NVM |
+| FilterSensorValue() | raw, prev_filtered | filtered | Filter initialized | Noise reduced |
 
-**Output Parameters / 출력 매개변수:**
+---
 
-| Name / 이름 | Type / 유형 | Range / 범위 | Unit / 단위 | Description / 설명 |
-|---|---|---|---|---|
-| {param_name} | {data_type} | {min} ~ {max} | | |
-| | | | | |
+## 3. Algorithm Description / 알고리즘 기술
+<!-- GUIDE: 핵심 알고리즘을 의사코드로 기술하세요 -->
 
-**Global Variables Used / 사용된 전역 변수:**
+### 3.1 PID Controller / PID 제어기
 
-| Name / 이름 | Type / 유형 | Access / 접근 | Description / 설명 |
-|---|---|---|---|
-| | | Read/Write | |
-| | | | |
+```pseudo
+FUNCTION CalcAssistTorque(steering_angle, vehicle_speed, target_angle):
+    // Calculate error
+    error = target_angle - steering_angle
 
-#### 3.1.3 Algorithm / 알고리즘
+    // PID gains (speed-dependent)
+    Kp = LookupTable_Kp(vehicle_speed)
+    Ki = LookupTable_Ki(vehicle_speed)
+    Kd = LookupTable_Kd(vehicle_speed)
 
-{algorithm_description}
+    // PID calculation
+    P_term = Kp * error
+    I_term = I_term_prev + Ki * error * dt    // dt = 5ms
+    D_term = Kd * (error - error_prev) / dt
 
-```
-Pseudocode / 의사코드:
------------------------
-FUNCTION {function_name}(inputs)
-    // Step 1: {step_description}
-    // Step 2: {step_description}
-    RETURN output
+    // Anti-windup for integral term
+    IF I_term > I_MAX THEN I_term = I_MAX
+    IF I_term < I_MIN THEN I_term = I_MIN
+
+    // Calculate output torque
+    torque = P_term + I_term + D_term
+
+    // Output limiting
+    IF torque > TORQUE_MAX THEN torque = TORQUE_MAX    // 12.0 Nm
+    IF torque < TORQUE_MIN THEN torque = TORQUE_MIN    // -12.0 Nm
+
+    // Safety check
+    IF safety_state != NORMAL THEN
+        torque = torque * degradation_factor    // 0.5 for DEGRADED, 0.0 for SAFE
+
+    // Update previous values
+    error_prev = error
+    I_term_prev = I_term
+
+    RETURN torque
 END FUNCTION
 ```
 
-#### 3.1.4 State Machine (if applicable) / 상태 머신 (해당 시)
+### 3.2 Sensor Filter (Low-Pass) / 센서 필터
 
-| State / 상태 | Entry Action / 진입 동작 | During Action / 수행 동작 | Exit Action / 종료 동작 | Transitions / 전이 |
-|---|---|---|---|---|
-| | | | | |
-
-#### 3.1.5 Error Handling / 에러 처리
-
-| Error Condition / 에러 조건 | Detection / 검출 | Reaction / 반응 | DTC (if applicable) |
-|---|---|---|---|
-| | | | |
-
-#### 3.1.6 Calibration Parameters / 캘리브레이션 매개변수
-
-| Name / 이름 | Type / 유형 | Default / 기본값 | Range / 범위 | Description / 설명 |
-|---|---|---|---|---|
-| | | | | |
+```pseudo
+FUNCTION FilterSensorValue(raw_value, prev_filtered):
+    alpha = 0.3    // Filter coefficient (0 < alpha < 1)
+    filtered = alpha * raw_value + (1 - alpha) * prev_filtered
+    RETURN filtered
+END FUNCTION
+```
 
 ---
 
-## 4. Data Structures / 데이터 구조
+## 4. Data Dictionary / 데이터 사전
 
-### 4.1 Type Definitions / 유형 정의
-
-| Type Name / 유형명 | Base Type / 기본 유형 | Size (Bytes) | Description / 설명 |
-|---|---|---|---|
-| | | | |
-
-### 4.2 Enumerations / 열거형
-
-| Enum Name / 열거형명 | Values / 값 | Description / 설명 |
-|---|---|---|
-| | | |
-
-### 4.3 Structures / 구조체
-
-| Struct Name / 구조체명 | Members / 멤버 | Size (Bytes) | Description / 설명 |
-|---|---|---|---|
-| | | | |
-
----
-
-## 5. NVM Data / NVM 데이터
-
-| Block ID / 블록 ID | Name / 이름 | Size (Bytes) | Default / 기본값 | Write Condition / 쓰기 조건 | Description / 설명 |
+| Variable | Type | Range | Unit | Init Value | Description |
 |---|---|---|---|---|---|
-| | | | | | |
+| g_steeringAngle | FLOAT32 | -720.0 ~ 720.0 | deg | 0.0 | Filtered steering angle |
+| g_vehicleSpeed | FLOAT32 | 0 ~ 300.0 | km/h | 0.0 | Vehicle speed from CAN |
+| g_targetTorque | FLOAT32 | -12.0 ~ 12.0 | Nm | 0.0 | Calculated assist torque |
+| g_motorCurrent | FLOAT32 | 0 ~ 80.0 | A | 0.0 | Measured motor current |
+| g_safetyState | UINT8 | 0~3 | enum | 0 (INIT) | Current safety state |
+| g_faultMask | UINT32 | 0x0~0xFFFFFFFF | bitmask | 0x0 | Active fault flags |
+| g_pidIntegral | FLOAT32 | -100.0 ~ 100.0 | - | 0.0 | PID integral accumulator |
+| g_pidErrorPrev | FLOAT32 | -720.0 ~ 720.0 | deg | 0.0 | Previous PID error |
+| g_sensorFailCnt | UINT16 | 0 ~ 65535 | count | 0 | Consecutive sensor fail |
 
 ---
 
-## 6. Static Analysis and Coding Compliance / 정적 분석 및 코딩 준수
+## 5. State Machine / 상태 머신 전이 테이블
 
-### 6.1 MISRA-C Compliance / MISRA-C 준수
-
-| Rule Category / 규칙 분류 | Total Rules / 전체 규칙 | Compliant / 준수 | Deviations / 편차 | Justification / 근거 |
+| State ID | State Name | Entry Action | During Action | Exit Action |
 |---|---|---|---|---|
-| Mandatory / 필수 | | | | |
-| Required / 요구 | | | | |
-| Advisory / 권고 | | | | |
-
-### 6.2 Static Analysis Summary / 정적 분석 요약
-
-| Tool / 도구 | Critical / 치명적 | Major / 주요 | Minor / 경미 | Info / 정보 |
-|---|---|---|---|---|
-| {analysis_tool} | | | | |
+| 0 | INIT | Initialize all modules | Self-test | Enable watchdog |
+| 1 | NORMAL | Enable full torque | PID control loop | Store last values |
+| 2 | DEGRADED | Reduce max torque 50% | Limited control | Log transition |
+| 3 | SAFE_STATE | Set torque=0 | Monitor recovery | - |
 
 ---
 
-## 7. Traceability / 추적성
+## 6. MISRA-C Compliance / MISRA-C 준수
+<!-- GUIDE: MISRA-C:2012 규칙 준수 여부를 확인하세요 -->
 
-### 7.1 Upstream Traceability from SWE.2 / SWE.2 상위 추적성
-
-Each unit shall trace back to at least one architecture component (SWE.2).
-
-각 유닛은 최소 하나의 아키텍처 컴포넌트 (SWE.2)로 역추적되어야 합니다.
-
-| Component ID / 컴포넌트 ID | Unit ID / 유닛 ID | Coverage / 커버리지 |
-|---|---|---|
-| SWC-001 | UNIT-001 | |
-| SWC-001 | UNIT-002 | |
-| | | |
-
-### 7.2 Upstream Traceability from SWE.1 / SWE.1 상위 추적성
-
-| SW Req ID / SW 요구사항 ID | Unit ID / 유닛 ID | Function / 함수 |
-|---|---|---|
-| SWR-F-001 | UNIT-001 | |
-| | | |
-
-### 7.3 Downstream Traceability to SWE.4 / SWE.4 하위 추적성
-
-Each unit shall be verified by at least one unit test case (SWE.4).
-
-각 유닛은 최소 하나의 유닛 테스트 케이스 (SWE.4)로 검증되어야 합니다.
-
-| Unit ID / 유닛 ID | Unit Test ID / 유닛 테스트 ID | Result / 결과 |
-|---|---|---|
-| UNIT-001 | | |
-| | | |
-
----
-
-## 8. Appendix / 부록
-
-### 8.1 Related ASPICE Stages / 관련 ASPICE 단계
-
-| Stage / 단계 | Relationship / 관계 | Document / 문서 |
-|---|---|---|
-| SWE.1 | Requirements flow to unit level / 요구사항이 유닛 레벨까지 흐름 | SRS |
-| SWE.2 | Units refine architecture components / 유닛이 아키텍처 컴포넌트를 상세화 | SAD |
-| SWE.4 | Units are verified by unit tests / 유닛이 유닛 테스트로 검증됨 | UTR |
-
-### 8.2 Code Review Records / 코드 리뷰 기록
-
-| Review ID / 리뷰 ID | Date / 날짜 | Reviewer / 검토자 | Findings / 발견사항 | Status / 상태 |
-|---|---|---|---|---|
-| | | | | |
-
-### 8.3 Open Issues / 미결 사항
-
-| ID | Description / 설명 | Owner / 담당자 | Due Date / 기한 |
+| Rule | Category | Description | Status |
 |---|---|---|---|
-| | | | |
+| Rule 1.3 | Required | No undefined/unspecified behavior | ☐ Compliant |
+| Rule 10.1 | Required | Operands shall not be of inappropriate essential type | ☐ Compliant |
+| Rule 11.3 | Required | Cast between pointer to object and integral type | ☐ Compliant |
+| Rule 14.3 | Required | Controlling expression shall not be invariant | ☐ Compliant |
+| Rule 17.7 | Required | Return value of non-void function shall be used | ☐ Compliant |
+| Rule 21.3 | Required | Memory allocation functions shall not be used | ☐ Compliant |
+
+---
+
+## 7. NVM Data Layout / NVM 데이터 배치
+
+| Block ID | Name | Size (B) | Content | CRC |
+|---|---|---|---|---|
+| NVM_BLK_01 | Calibration Data | 256 | PID gains, lookup tables | CRC32 |
+| NVM_BLK_02 | DTC Storage | 512 | Up to 32 DTCs | CRC16 |
+| NVM_BLK_03 | Runtime Data | 64 | Operating hours, counters | CRC16 |
+
+---
+
+## 8. Traceability / 추적성
+
+| SWE.2 Component | SWE.3 Module/Function | SWE.4 Unit Test |
+|---|---|---|
+| ControlLogic | CalcAssistTorque() | UT-001~005 |
+| SensorInput | ReadSteeringAngle(), FilterSensorValue() | UT-006~010 |
+| SafetyMonitor | UpdateSafetyState(), CheckSensorValidity() | UT-011~015 |
+| ActuatorOutput | SetMotorPWM(), ControlCurrent() | UT-016~018 |
+
+---
+
+## 9. Review Criteria / 검토 기준
+| # | Criteria | Check |
+|---|---|---|
+| 1 | All SWE.2 components have detailed designs | ☐ |
+| 2 | Algorithm pseudocode complete and correct | ☐ |
+| 3 | Data dictionary complete (all global variables) | ☐ |
+| 4 | MISRA-C compliance checklist reviewed | ☐ |
+| 5 | Function pre/post conditions defined | ☐ |
+| 6 | NVM layout documented | ☐ |
+| 7 | Traceability to SWE.2 and SWE.4 complete | ☐ |
+
+---
+*Generated by ASPICE Process Manager*

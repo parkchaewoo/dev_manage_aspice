@@ -1,232 +1,142 @@
-# Unit Test Report
-# 유닛 테스트 보고서
+# Unit Test Report / 단위 시험 보고서
 
 ---
+<!-- GUIDE: SWE.3 상세 설계에 대해 각 소프트웨어 단위를 검증하는 시험 보고서입니다 -->
 
 | Field / 항목 | Value / 값 |
 |---|---|
-| Project Name / 프로젝트명 | {project_name} |
+| Project Name | {project_name} |
 | OEM | {oem_name} |
-| Document ID / 문서 ID | {document_id} |
-| Version / 버전 | {version} |
-| Date / 날짜 | {date} |
-| Author / 작성자 | {author} |
-| Reviewer / 검토자 | {reviewer} |
-| Approver / 승인자 | {approver} |
-| Status / 상태 | {status} |
-| Test Tool / 테스트 도구 | {test_tool} |
-| Classification / 보안등급 | {classification} |
+| Document ID | {document_id} |
+| Version | 0.1 |
+| Date | {date} |
+| Author | |
+| Status | Draft |
 
----
-
-## Revision History / 개정 이력
-
-| Version / 버전 | Date / 날짜 | Author / 작성자 | Description / 설명 |
-|---|---|---|---|
-| {version} | {date} | {author} | {change_description} |
-
----
-
-## 1. Introduction / 서론
-
-### 1.1 Purpose / 목적
-
-This document reports the results of unit verification (SWE.4) for {project_name} developed for {oem_name}. It provides test execution results, coverage metrics, and defect summary for all tested software units.
-
-본 문서는 {oem_name}을 위해 개발된 {project_name}의 유닛 검증 (SWE.4) 결과를 보고합니다. 테스트된 모든 소프트웨어 유닛에 대한 테스트 실행 결과, 커버리지 메트릭 및 결함 요약을 제공합니다.
-
-### 1.2 Scope / 범위
-
-{scope_description}
-
-### 1.3 References / 참고 문서
-
-| ID | Document / 문서 | Version / 버전 |
-|---|---|---|
-| [REF-01] | Software Detailed Design Document (SWE.3) / SDD | |
-| [REF-02] | Unit Test Plan / 유닛 테스트 계획서 | |
-| [REF-03] | Unit Test Case Specification / 유닛 테스트 케이스 명세서 | |
-| | | |
-
----
-
-## 2. Test Environment / 테스트 환경
-
-### 2.1 Tools and Infrastructure / 도구 및 인프라
-
-| Item / 항목 | Description / 설명 | Version / 버전 |
-|---|---|---|
-| Test Framework / 테스트 프레임워크 | {test_framework} | |
-| Compiler / 컴파일러 | {compiler} | |
-| Coverage Tool / 커버리지 도구 | {coverage_tool} | |
-| Static Analysis Tool / 정적 분석 도구 | {static_analysis_tool} | |
-| CI/CD Pipeline / CI/CD 파이프라인 | {ci_cd_tool} | |
-| Target Platform / 대상 플랫폼 | {target_platform} | |
-
-### 2.2 Test Configuration / 테스트 구성
-
-| Parameter / 매개변수 | Value / 값 |
+## Input Artifacts / 입력 산출물
+| Artifact | Source |
 |---|---|
-| Optimization Level / 최적화 레벨 | {optimization_level} |
-| Stub Strategy / 스텁 전략 | {stub_strategy} |
-| Mock Framework / 모킹 프레임워크 | {mock_framework} |
+| Detailed Design (SWE.3) | SWE.3 |
+| Source Code | SWE.3 |
+| Coding Guidelines | Quality |
+
+## Output Artifacts / 출력 산출물
+| Artifact | Target |
+|---|---|
+| Unit Test Report (this) | SWE.5 Integration |
+| Coverage Report | Quality Assurance |
 
 ---
 
-## 3. Test Execution Summary / 테스트 실행 요약
+## 1. Test Scope / 시험 범위
+<!-- GUIDE: V-Model 쌍: SWE.3(상세설계) ↔ SWE.4(단위검증) -->
+본 문서는 SWE.3에서 구현한 소프트웨어 단위에 대한 검증 결과를 기술합니다.
 
-### 3.1 Overall Results / 전체 결과
+---
 
-| Metric / 메트릭 | Value / 값 |
+## 2. Test Environment / 시험 환경
+
+| Item / 항목 | Description / 설명 |
 |---|---|
-| Total Test Cases / 전체 테스트 케이스 | {total_test_cases} |
-| Passed / 통과 | {passed_count} |
-| Failed / 실패 | {failed_count} |
-| Blocked / 차단 | {blocked_count} |
-| Not Executed / 미실행 | {not_executed_count} |
-| Pass Rate / 통과율 | {pass_rate}% |
-| Test Execution Date / 테스트 실행 날짜 | {execution_date} |
+| Test Framework | Google Test / Unity / Cantata |
+| Compiler | GCC ARM 12.2 / Green Hills MULTI |
+| Coverage Tool | LDRA / Parasoft C/C++test / gcov |
+| Static Analysis | Polyspace / QAC / PC-lint |
+| Target MCU | (or Host simulation) |
+| OS | AUTOSAR OS / FreeRTOS / Bare-metal |
 
-### 3.2 Results by Unit / 유닛별 결과
+---
 
-| Unit ID / 유닛 ID | Unit Name / 유닛명 | Total / 전체 | Passed / 통과 | Failed / 실패 | Blocked / 차단 | Pass Rate / 통과율 |
+## 3. Test Case Matrix / 시험 항목 매트릭스
+<!-- GUIDE: SWE.3의 각 함수에 대한 테스트 케이스를 작성하세요 -->
+
+| TC-ID | Function / 함수 | Description / 시험 내용 | Input | Expected Output | Actual Output | Result |
 |---|---|---|---|---|---|---|
-| UNIT-001 | | | | | | % |
-| UNIT-002 | | | | | | % |
-| UNIT-003 | | | | | | % |
-| **Total / 합계** | | | | | | **%** |
-
-### 3.3 Results by Test Category / 테스트 범주별 결과
-
-| Category / 범주 | Total / 전체 | Passed / 통과 | Failed / 실패 | Pass Rate / 통과율 |
-|---|---|---|---|---|
-| Normal Operation / 정상 동작 | | | | % |
-| Boundary Values / 경계값 | | | | % |
-| Error Handling / 에러 처리 | | | | % |
-| Robustness / 견고성 | | | | % |
-| **Total / 합계** | | | | **%** |
+| UT-001 | CalcAssistTorque | Normal operation: angle=10°, speed=50km/h | angle=10.0, speed=50.0 | torque=3.5 Nm (±0.1) | | Pass/Fail |
+| UT-002 | CalcAssistTorque | Zero speed (parking): high assist | angle=45.0, speed=0.0 | torque=10.0 Nm (±0.5) | | |
+| UT-003 | CalcAssistTorque | Max speed: minimal assist | angle=10.0, speed=200.0 | torque=0.5 Nm (±0.1) | | |
+| UT-004 | CalcAssistTorque | Output saturation: max torque | angle=720.0, speed=0.0 | torque=12.0 Nm (max) | | |
+| UT-005 | CalcAssistTorque | Safety state DEGRADED | angle=10.0, state=DEGRADED | torque ≤ 6.0 Nm (50%) | | |
+| UT-006 | ReadSteeringAngle | Normal range | ADC raw=2048 | angle=0.0° | | |
+| UT-007 | ReadSteeringAngle | Boundary: max positive | ADC raw=4095 | angle=720.0° | | |
+| UT-008 | ReadSteeringAngle | Boundary: max negative | ADC raw=0 | angle=-720.0° | | |
+| UT-009 | ReadSteeringAngle | Invalid input: sensor disconnect | ADC raw=0xFFFF | Error flag set | | |
+| UT-010 | CheckSensorValidity | Valid value in range | raw=500.0, range=±720 | TRUE | | |
+| UT-011 | CheckSensorValidity | Out of range | raw=800.0, range=±720 | FALSE, fault flag | | |
+| UT-012 | FilterSensorValue | Step response | raw=100.0, prev=0.0 | filtered=30.0 (α=0.3) | | |
+| UT-013 | UpdateSafetyState | No faults | fault_mask=0x0 | state=NORMAL | | |
+| UT-014 | UpdateSafetyState | Critical fault | fault_mask=0x01 | state=SAFE_STATE | | |
+| UT-015 | WriteDtc | Store DTC | code=C1001 | NVM write success | | |
 
 ---
 
 ## 4. Coverage Results / 커버리지 결과
+<!-- GUIDE: 커버리지 목표: Statement 100%, Branch 100%, MC/DC 100% (ASIL D) -->
 
-### 4.1 Overall Coverage / 전체 커버리지
-
-| Coverage Type / 커버리지 유형 | Achieved / 달성 (%) | Target / 목표 (%) | Status / 상태 |
-|---|---|---|---|
-| Statement Coverage / 구문 커버리지 | | 80 | PASS/FAIL |
-| Branch Coverage / 분기 커버리지 | | 70 | PASS/FAIL |
-| MC/DC Coverage (safety-critical) / MC/DC 커버리지 (안전 필수) | | 100 | PASS/FAIL |
-| Function Coverage / 함수 커버리지 | | 100 | PASS/FAIL |
-
-### 4.2 Coverage by Unit / 유닛별 커버리지
-
-| Unit ID / 유닛 ID | Unit Name / 유닛명 | Statement (%) / 구문 | Branch (%) / 분기 | MC/DC (%) | Status / 상태 |
+| Module / 모듈 | Statement % | Branch % | MC/DC % | Target | Status |
 |---|---|---|---|---|---|
-| UNIT-001 | | | | | |
-| UNIT-002 | | | | | |
-| UNIT-003 | | | | | |
-| **Average / 평균** | | | | | |
-
-### 4.3 Coverage Gaps and Justification / 커버리지 미달 및 근거
-
-| Unit ID / 유닛 ID | Gap Type / 미달 유형 | Uncovered Code / 미커버 코드 | Justification / 근거 |
-|---|---|---|---|
-| | | | |
+| ControlLogic | | | | 100/100/100 | |
+| SensorInput | | | | 100/100/- | |
+| SafetyMonitor | | | | 100/100/100 | |
+| ActuatorOutput | | | | 100/100/- | |
+| DiagManager | | | | 100/100/- | |
+| CommManager | | | | 100/100/- | |
+| **Overall** | | | | | |
 
 ---
 
-## 5. Test Case Details / 테스트 케이스 상세
+## 5. Static Analysis Results / 정적 분석 결과
 
-### 5.1 Test Case Results for UNIT-001 / UNIT-001 테스트 케이스 결과
-
-| Test Case ID / 테스트 케이스 ID | Description / 설명 | Input / 입력 | Expected / 예상 | Actual / 실제 | Result / 결과 |
+| Category | Total | Critical | Major | Minor | Suppressed |
 |---|---|---|---|---|---|
-| TC-UNIT001-001 | | | | | PASS/FAIL |
-| TC-UNIT001-002 | | | | | PASS/FAIL |
-| | | | | | |
+| MISRA-C:2012 Required | | 0 | | | |
+| MISRA-C:2012 Advisory | | 0 | | | |
+| Compiler Warnings | | 0 | | | |
+| Polyspace Red/Orange | | 0 | | | |
 
 ---
 
 ## 6. Defect Summary / 결함 요약
 
-### 6.1 Defects Found / 발견된 결함
-
-| Defect ID / 결함 ID | Unit / 유닛 | Severity / 심각도 | Description / 설명 | Status / 상태 | Resolution / 해결 |
+| Defect ID | TC-ID | Severity | Description / 설명 | Status | Fix Date |
 |---|---|---|---|---|---|
-| DEF-001 | | Critical/Major/Minor | | Open/Closed | |
-| | | | | | |
+| DEF-001 | UT-004 | Major | (예시) Torque saturation logic off-by-one | Closed | |
+| | | | (결함을 기록하세요) | | |
 
-### 6.2 Defect Statistics / 결함 통계
-
-| Severity / 심각도 | Found / 발견 | Resolved / 해결 | Open / 미해결 |
-|---|---|---|---|
-| Critical / 치명적 | | | |
-| Major / 주요 | | | |
-| Minor / 경미 | | | |
-| **Total / 합계** | | | |
-
----
-
-## 7. Traceability / 추적성
-
-### 7.1 Upstream Traceability from SWE.3 / SWE.3 상위 추적성
-
-Each unit test case shall trace back to a detailed design unit (SWE.3).
-
-각 유닛 테스트 케이스는 상세 설계 유닛 (SWE.3)으로 역추적되어야 합니다.
-
-| Unit ID / 유닛 ID | Test Case IDs / 테스트 케이스 ID | Coverage Status / 커버리지 상태 |
-|---|---|---|
-| UNIT-001 | TC-UNIT001-001, TC-UNIT001-002 | |
-| UNIT-002 | | |
-| | | |
-
-### 7.2 Upstream Traceability from SWE.1 / SWE.1 상위 추적성
-
-| SW Req ID / SW 요구사항 ID | Unit ID / 유닛 ID | Test Case ID / 테스트 케이스 ID | Result / 결과 |
-|---|---|---|---|
-| SWR-F-001 | UNIT-001 | TC-UNIT001-001 | |
-| | | | |
-
-### 7.3 Relationship to SWE.5 / SWE.5 관계
-
-Units verified here are subsequently integrated and tested at the integration level (SWE.5).
-
-여기서 검증된 유닛은 이후 통합 레벨 (SWE.5)에서 통합되어 테스트됩니다.
+| Metric / 지표 | Value / 값 |
+|---|---|
+| Total Test Cases / 전체 시험 수 | |
+| Passed | |
+| Failed | |
+| Blocked | |
+| Pass Rate / 합격률 | |
+| Defect Density | defects / KLOC |
 
 ---
 
-## 8. Conclusion and Recommendations / 결론 및 권고
+## 7. Traceability / 추적성 (SWE.3 → SWE.4)
 
-### 8.1 Test Verdict / 테스트 판정
-
-| Criteria / 기준 | Result / 결과 | Status / 상태 |
+| SWE.3 Function | TC-IDs | Coverage |
 |---|---|---|
-| All test cases executed / 전체 테스트 케이스 실행 | | PASS/FAIL |
-| Pass rate ≥ 100% / 통과율 ≥ 100% | | PASS/FAIL |
-| Coverage targets met / 커버리지 목표 달성 | | PASS/FAIL |
-| No open critical defects / 미해결 치명적 결함 없음 | | PASS/FAIL |
-| **Overall Verdict / 전체 판정** | | **PASS/FAIL** |
-
-### 8.2 Recommendations / 권고 사항
-
-{recommendations}
+| CalcAssistTorque | UT-001~005 | Full |
+| ReadSteeringAngle | UT-006~009 | Full |
+| CheckSensorValidity | UT-010~011 | Full |
+| FilterSensorValue | UT-012 | Full |
+| UpdateSafetyState | UT-013~014 | Full |
+| WriteDtc | UT-015 | Full |
 
 ---
 
-## 9. Appendix / 부록
-
-### 9.1 Related ASPICE Stages / 관련 ASPICE 단계
-
-| Stage / 단계 | Relationship / 관계 | Document / 문서 |
+## 8. Review Criteria / 검토 기준
+| # | Criteria | Check |
 |---|---|---|
-| SWE.3 | Unit tests verify detailed design / 유닛 테스트가 상세 설계를 검증 | SDD |
-| SWE.1 | Unit tests contribute to requirement verification / 유닛 테스트가 요구사항 검증에 기여 | SRS |
-| SWE.5 | Verified units feed into integration / 검증된 유닛이 통합에 투입됨 | ITR |
+| 1 | All SWE.3 functions have test cases | ☐ |
+| 2 | Coverage targets met (Statement/Branch/MC-DC) | ☐ |
+| 3 | All test cases executed and results recorded | ☐ |
+| 4 | No open critical/major defects | ☐ |
+| 5 | Static analysis clean (0 critical violations) | ☐ |
+| 6 | Boundary values and error cases tested | ☐ |
+| 7 | Traceability to SWE.3 complete | ☐ |
 
-### 9.2 Open Issues / 미결 사항
-
-| ID | Description / 설명 | Owner / 담당자 | Due Date / 기한 |
-|---|---|---|---|
-| | | | |
+---
+*Generated by ASPICE Process Manager*

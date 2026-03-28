@@ -1,6 +1,8 @@
 oem_name: "HKMC (Hyundai Kia Motor Company / 현대기아자동차)"
 description: "HKMC-specific ASPICE configuration. Aligned with Hyundai-Kia development standards, Korean document naming conventions, and steering system ECU focus."
 
+phases: ["Mcar", "P1", "P2", "Pilot", "SOP"]
+
 stages:
   SWE.1:
     enabled: true

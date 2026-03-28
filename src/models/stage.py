@@ -5,14 +5,14 @@ from src.models.database import get_connection
 class StageModel:
     @staticmethod
     def create(project_id, swe_level, status="Not Started",
-               planned_start=None, planned_end=None, conn=None):
+               planned_start=None, planned_end=None, phase_id=None, conn=None):
         should_close = conn is None
         if conn is None:
             conn = get_connection()
         cursor = conn.execute(
-            """INSERT INTO stages (project_id, swe_level, status, planned_start, planned_end)
-               VALUES (?, ?, ?, ?, ?)""",
-            (project_id, swe_level, status, planned_start, planned_end)
+            """INSERT INTO stages (project_id, phase_id, swe_level, status, planned_start, planned_end)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (project_id, phase_id, swe_level, status, planned_start, planned_end)
         )
         conn.commit()
         sid = cursor.lastrowid
@@ -59,6 +59,18 @@ class StageModel:
             conn.commit()
         if should_close:
             conn.close()
+
+    @staticmethod
+    def get_by_phase(phase_id, conn=None):
+        should_close = conn is None
+        if conn is None:
+            conn = get_connection()
+        rows = conn.execute(
+            "SELECT * FROM stages WHERE phase_id = ? ORDER BY swe_level", (phase_id,)
+        ).fetchall()
+        if should_close:
+            conn.close()
+        return rows
 
     @staticmethod
     def get_completion_stats(stage_id, conn=None):
