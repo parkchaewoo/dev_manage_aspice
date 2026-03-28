@@ -50,6 +50,23 @@ class ChecklistModel:
             conn.close()
 
     @staticmethod
+    def exclude(item_id, reason="", conn=None):
+        """체크리스트 항목 제외/제외 해제 토글"""
+        should_close = conn is None
+        if conn is None:
+            conn = get_connection()
+        item = conn.execute("SELECT is_excluded FROM checklist_items WHERE id = ?", (item_id,)).fetchone()
+        if item:
+            new_val = 0 if item['is_excluded'] else 1
+            conn.execute(
+                "UPDATE checklist_items SET is_excluded = ?, exclude_reason = ? WHERE id = ?",
+                (new_val, reason if new_val else "", item_id)
+            )
+            conn.commit()
+        if should_close:
+            conn.close()
+
+    @staticmethod
     def delete(item_id, conn=None):
         should_close = conn is None
         if conn is None:

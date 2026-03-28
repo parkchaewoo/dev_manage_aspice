@@ -106,6 +106,8 @@ def initialize_schema(conn=None):
             stage_id INTEGER NOT NULL,
             description TEXT NOT NULL,
             is_checked INTEGER DEFAULT 0,
+            is_excluded INTEGER DEFAULT 0,
+            exclude_reason TEXT DEFAULT '',
             checked_by TEXT DEFAULT '',
             checked_at TIMESTAMP,
             FOREIGN KEY (stage_id) REFERENCES stages(id) ON DELETE CASCADE
@@ -211,6 +213,10 @@ def _run_migrations(conn):
          "ALTER TABLE documents ADD COLUMN content TEXT DEFAULT ''"),
         ("SELECT phase_id FROM stages LIMIT 1",
          "ALTER TABLE stages ADD COLUMN phase_id INTEGER"),
+        ("SELECT is_excluded FROM checklist_items LIMIT 1",
+         "ALTER TABLE checklist_items ADD COLUMN is_excluded INTEGER DEFAULT 0"),
+        ("SELECT exclude_reason FROM checklist_items LIMIT 1",
+         "ALTER TABLE checklist_items ADD COLUMN exclude_reason TEXT DEFAULT ''"),
     ]
     for check_sql, alter_sql in migrations:
         try:

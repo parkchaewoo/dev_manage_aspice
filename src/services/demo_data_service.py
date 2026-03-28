@@ -1,5 +1,6 @@
 """데모 데이터 서비스 - 기본 OEM 3개 + 예시 프로젝트 3개 생성"""
 import os
+from datetime import date
 from src.models.oem import OemModel
 from src.models.project import ProjectModel
 from src.models.stage import StageModel
@@ -24,6 +25,31 @@ def _load_oem_yaml(filename):
         return ""
 
 
+def _load_template_for_doc(template_id, project_name="", oem_name=""):
+    """Load template content for a document's template_type, filling placeholders."""
+    from src.services.export_service import _TEMPLATE_MAP, _TEMPLATES_DIR
+    filename = _TEMPLATE_MAP.get(template_id)
+    if not filename:
+        return ""
+    path = os.path.join(_TEMPLATES_DIR, filename)
+    if not os.path.isfile(path):
+        return ""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        content = content.replace("{project_name}", project_name)
+        content = content.replace("{oem_name}", oem_name)
+        content = content.replace("{date}", str(date.today()))
+        # Fill other common placeholders with defaults
+        content = content.replace("{document_id}", "")
+        content = content.replace("{document_name}", "")
+        content = content.replace("{status}", "Draft")
+        content = content.replace("{swe_level}", "")
+        return content
+    except Exception:
+        return ""
+
+
 def _create_stages_from_config(project_id, config_yaml_str, conn, phase_id=None):
     """OEM 설정에 기반하여 단계/문서/체크리스트 생성"""
     from src.utils.yaml_helpers import load_yaml_string
@@ -32,6 +58,14 @@ def _create_stages_from_config(project_id, config_yaml_str, conn, phase_id=None)
 
     stage_ids = {}
     doc_ids = {}
+
+    # Get project and OEM names for template placeholder filling
+    project = ProjectModel.get_by_id(project_id, conn)
+    project_name = project["name"] if project else ""
+    oem_name = ""
+    if project:
+        oem = OemModel.get_by_id(project["oem_id"], conn)
+        oem_name = oem["name"] if oem else ""
 
     for swe_level in ["SWE.1", "SWE.2", "SWE.3", "SWE.4", "SWE.5", "SWE.6"]:
         stage_conf = stages_config.get(swe_level, {})
@@ -67,6 +101,12 @@ def _create_stages_from_config(project_id, config_yaml_str, conn, phase_id=None)
             template_id = doc_info.get("template_id", "")
             did = DocumentModel.create(stage_id, doc_name, template_type=template_id, conn=conn)
             swe_doc_ids.append(did)
+
+            # Load and set template content for the document
+            if template_id:
+                content = _load_template_for_doc(template_id, project_name, oem_name)
+                if content:
+                    DocumentModel.update(did, content=content, conn=conn)
         doc_ids[swe_level] = swe_doc_ids
 
         # 체크리스트 생성

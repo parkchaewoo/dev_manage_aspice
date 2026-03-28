@@ -71,26 +71,55 @@ class ChecklistWidget(QWidget):
         items = ChecklistModel.get_by_stage(stage_id, conn)
         self._clear_items()
 
+        excluded = sum(1 for item in items if item.get("is_excluded"))
+        checked = sum(1 for item in items if item["is_checked"] and not item.get("is_excluded"))
         total = len(items)
-        checked = sum(1 for item in items if item["is_checked"])
+        effective_total = total - excluded
 
         for item in items:
             self._add_check_row(item)
 
-        self._update_progress(checked, total)
+        self._update_progress(checked, effective_total)
         if should_close:
             conn.close()
 
     def _add_check_row(self, item):
         """체크리스트 행 추가"""
         row = QHBoxLayout()
+        is_excluded = bool(item.get("is_excluded"))
 
-        cb = QCheckBox(item["description"])
+        description = item["description"]
+        if is_excluded:
+            display_text = f"[N/A] {description}"
+        else:
+            display_text = description
+
+        cb = QCheckBox(display_text)
         cb.setChecked(bool(item["is_checked"]))
-        if item["is_checked"]:
+
+        if is_excluded:
+            cb.setStyleSheet(
+                "background-color: #E8E8E8; text-decoration: line-through; color: #8E8E93;"
+            )
+            cb.setEnabled(False)
+        elif item["is_checked"]:
             cb.setStyleSheet("text-decoration: line-through; color: #8E8E93;")
+
         cb.stateChanged.connect(lambda state, iid=item["id"]: self._toggle_item(iid, state))
         row.addWidget(cb, 1)
+
+        # Exclude / N.A. button
+        excl_btn = QPushButton("N/A" if not is_excluded else "Incl")
+        excl_btn.setMaximumSize(40, 28)
+        excl_btn.setStyleSheet(
+            "background-color: transparent; color: #FF9500; "
+            "border: 1px solid #FF9500; border-radius: 4px; font-size: 11px;"
+            if not is_excluded else
+            "background-color: transparent; color: #34C759; "
+            "border: 1px solid #34C759; border-radius: 4px; font-size: 11px;"
+        )
+        excl_btn.clicked.connect(lambda _, iid=item["id"]: self._exclude_item(iid))
+        row.addWidget(excl_btn)
 
         del_btn = QPushButton("x")
         del_btn.setMaximumSize(28, 28)
@@ -107,6 +136,11 @@ class ChecklistWidget(QWidget):
 
     def _toggle_item(self, item_id, state):
         ChecklistModel.toggle(item_id)
+        self.load_stage(self.stage_id)
+
+    def _exclude_item(self, item_id):
+        """항목 제외/포함 토글"""
+        ChecklistModel.exclude(item_id)
         self.load_stage(self.stage_id)
 
     def _add_item(self):

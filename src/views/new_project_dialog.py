@@ -9,6 +9,8 @@ from src.models.database import get_connection
 from src.models.oem import OemModel
 from src.services.project_service import create_project_from_template
 
+_CUSTOM_OPTION = "Custom... / 직접 입력..."
+
 
 class NewProjectDialog(QDialog):
     def __init__(self, parent=None):
@@ -33,9 +35,16 @@ class NewProjectDialog(QDialog):
 
         # Initial Phase / 시작 단계
         self.phase_combo = QComboBox()
-        self.phase_combo.setEditable(True)
-        self.phase_combo.setPlaceholderText("Select or type phase / 단계 선택 또는 입력")
+        self.phase_combo.setEditable(False)
         layout.addRow("Initial Phase / 시작 단계:", self.phase_combo)
+
+        # Custom phase name input (hidden by default)
+        self.custom_phase_edit = QLineEdit()
+        self.custom_phase_edit.setPlaceholderText("Custom phase name / 사용자 정의 단계 이름")
+        self.custom_phase_edit.setVisible(False)
+        layout.addRow("", self.custom_phase_edit)
+
+        self.phase_combo.currentIndexChanged.connect(self._on_phase_combo_changed)
         self._on_oem_changed()  # 초기 로드
 
         # 프로젝트 이름
@@ -72,6 +81,11 @@ class NewProjectDialog(QDialog):
         btn_layout.addWidget(create_btn)
         layout.addRow(btn_layout)
 
+    def _on_phase_combo_changed(self, index):
+        """Show/hide custom phase input based on combo selection."""
+        is_custom = self.phase_combo.currentText() == _CUSTOM_OPTION
+        self.custom_phase_edit.setVisible(is_custom)
+
     def _on_oem_changed(self):
         """OEM 변경 시 Phase 목록 업데이트"""
         self.phase_combo.clear()
@@ -90,6 +104,13 @@ class NewProjectDialog(QDialog):
                     pass
         if self.phase_combo.count() == 0:
             self.phase_combo.addItem("Phase 1")
+        self.phase_combo.addItem(_CUSTOM_OPTION)
+
+    def _get_phase_name(self):
+        """Get the selected or custom phase name."""
+        if self.phase_combo.currentText() == _CUSTOM_OPTION:
+            return self.custom_phase_edit.text().strip()
+        return self.phase_combo.currentText().strip()
 
     def _create(self):
         name = self.name_edit.text().strip()
@@ -102,6 +123,11 @@ class NewProjectDialog(QDialog):
             QMessageBox.warning(self, "Error", "Please select an OEM.\nOEM을 선택해주세요.")
             return
 
+        phase_name = self._get_phase_name()
+        if not phase_name:
+            QMessageBox.warning(self, "Error", "Please select or enter a phase name.\n단계 이름을 선택하거나 입력해주세요.")
+            return
+
         conn = get_connection()
         try:
             create_project_from_template(
@@ -110,7 +136,7 @@ class NewProjectDialog(QDialog):
                 description=self.desc_edit.text(),
                 start_date=self.start_date.date().toString("yyyy-MM-dd"),
                 target_end_date=self.end_date.date().toString("yyyy-MM-dd"),
-                initial_phase_name=self.phase_combo.currentText().strip() or None,
+                initial_phase_name=phase_name or None,
                 conn=conn
             )
             conn.close()
