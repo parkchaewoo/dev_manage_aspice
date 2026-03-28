@@ -71,8 +71,13 @@ class ChecklistWidget(QWidget):
         items = ChecklistModel.get_by_stage(stage_id, conn)
         self._clear_items()
 
-        excluded = sum(1 for item in items if item.get("is_excluded"))
-        checked = sum(1 for item in items if item["is_checked"] and not item.get("is_excluded"))
+        def _is_excluded(item):
+            try:
+                return bool(item["is_excluded"])
+            except (IndexError, KeyError):
+                return False
+        excluded = sum(1 for item in items if _is_excluded(item))
+        checked = sum(1 for item in items if item["is_checked"] and not _is_excluded(item))
         total = len(items)
         effective_total = total - excluded
 
@@ -86,7 +91,10 @@ class ChecklistWidget(QWidget):
     def _add_check_row(self, item):
         """체크리스트 행 추가"""
         row = QHBoxLayout()
-        is_excluded = bool(item.get("is_excluded"))
+        try:
+            is_excluded = bool(item["is_excluded"])
+        except (IndexError, KeyError):
+            is_excluded = False
 
         description = item["description"]
         if is_excluded:
