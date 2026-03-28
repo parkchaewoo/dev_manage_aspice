@@ -323,14 +323,14 @@ class DocumentEditorWidget(QWidget):
 
         self.table.setColumnCount(len(cols))
         self.table.setHorizontalHeaderLabels(cols)
+        # 모든 컬럼을 내용에 맞게 자동 확장 (ResizeToContents)
+        # 스크롤로 넘치는 부분 볼 수 있음
         for i in range(len(cols) - 1):
-            if i == 0:
-                self.table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
-            else:
-                self.table.horizontalHeader().setSectionResizeMode(i, QHeaderView.Interactive)
-                self.table.setColumnWidth(i, 200)  # 최소 200px, 드래그로 조절 가능
+            self.table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(len(cols) - 1, QHeaderView.Fixed)
         self.table.setColumnWidth(len(cols) - 1, 40)
+        # 최소 컬럼 폭 설정
+        self.table.horizontalHeader().setMinimumSectionSize(120)
 
         self.table.setRowCount(len(self._items))
 
@@ -341,13 +341,14 @@ class DocumentEditorWidget(QWidget):
             id_item.setForeground(QColor("#8E8E93"))
             self.table.setItem(r, 0, id_item)
 
-            # 테이블에 표시되는 필드들 (직접 편집 가능)
+            # 테이블에 표시되는 필드들 (직접 편집 가능 + 툴팁)
             fields = schema["fields"]
             for f in fields:
                 if "col" in f:
                     c = f["col"]
-                    val = item.get(f["key"], "")
-                    cell = QTableWidgetItem(str(val))
+                    val = str(item.get(f["key"], ""))
+                    cell = QTableWidgetItem(val)
+                    cell.setToolTip(val)  # 마우스 오버 시 전체 내용 표시
                     self.table.setItem(r, c, cell)
 
             # 삭제 버튼
