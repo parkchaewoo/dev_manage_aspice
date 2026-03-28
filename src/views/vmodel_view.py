@@ -166,18 +166,6 @@ class VModelWidget(QWidget):
                     QPen(QColor("#C7C7CC"), 2, Qt.SolidLine)
                 )
 
-        # 검증 흐름 화살표 (SWE.4→5→6: 단순 흐름 표시)
-        verify_flow = [("SWE.4", "SWE.5"), ("SWE.5", "SWE.6")]
-        for src_swe, dst_swe in verify_flow:
-            if src_swe in positions and dst_swe in positions:
-                sx, sy = positions[src_swe]
-                dx, dy = positions[dst_swe]
-                self.scene.addLine(
-                    sx + node_w / 2, sy + node_h,
-                    dx + node_w / 2, dy,
-                    QPen(QColor("#C7C7CC"), 2, Qt.SolidLine)
-                )
-
         # V-model 쌍 추적성 라인
         for left_swe, right_swe in VMODEL_PAIRS.items():
             left = stage_map.get(left_swe)

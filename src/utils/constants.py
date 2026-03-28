@@ -62,10 +62,13 @@ VMODEL_PAIRS = {
     "SWE.3": "SWE.4",
 }
 
-# 순차적 도출 쌍 (개발 흐름: 상→하)
+# 순차적 도출 쌍 (개발/검증 흐름)
 SEQUENTIAL_PAIRS = {
     "SWE.1": "SWE.2",  # Requirements → Architecture
     "SWE.2": "SWE.3",  # Architecture → Detailed Design
+    "SWE.3": "SWE.4",  # Detailed Design → Unit Verification
+    "SWE.4": "SWE.5",  # Unit Verification → Integration Test
+    "SWE.5": "SWE.6",  # Integration Test → Qualification Test
 }
 
 # 프로젝트 상태
