@@ -235,10 +235,9 @@ class DocumentEditorWidget(QWidget):
             try:
                 # Auto-load template content for new documents
                 template_type = data.get("template_type", "")
-                if template_type:
-                    template_content = self._load_template_content(template_type)
-                    if template_content:
-                        data["content"] = template_content
+                template_content = self._load_template_content(template_type)
+                if template_content:
+                    data["content"] = template_content
                 DocumentModel.create(self.stage_id, **data)
                 self.load_stage(self.stage_id)
             except Exception as e:
