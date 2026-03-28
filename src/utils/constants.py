@@ -55,11 +55,17 @@ SWE_STAGES = {
     },
 }
 
-# V-model 쌍
+# V-model 쌍 (검증 관계: 좌↔우)
 VMODEL_PAIRS = {
     "SWE.1": "SWE.6",
     "SWE.2": "SWE.5",
     "SWE.3": "SWE.4",
+}
+
+# 순차적 도출 쌍 (개발 흐름: 상→하)
+SEQUENTIAL_PAIRS = {
+    "SWE.1": "SWE.2",  # Requirements → Architecture
+    "SWE.2": "SWE.3",  # Architecture → Detailed Design
 }
 
 # 프로젝트 상태

@@ -91,6 +91,7 @@ def initialize_schema(conn=None):
             name TEXT NOT NULL,
             template_type TEXT DEFAULT '',
             file_path TEXT DEFAULT '',
+            content TEXT DEFAULT '',
             status TEXT DEFAULT 'Draft',
             reviewer TEXT DEFAULT '',
             review_date DATE,

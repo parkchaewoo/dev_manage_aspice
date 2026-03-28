@@ -10,7 +10,7 @@ from src.models.database import get_connection
 from src.models.stage import StageModel
 from src.models.document import DocumentModel
 from src.models.traceability import TraceabilityModel
-from src.utils.constants import SWE_STAGES, VMODEL_PAIRS
+from src.utils.constants import SWE_STAGES, VMODEL_PAIRS, SEQUENTIAL_PAIRS
 
 
 class TraceabilityMatrixWidget(QWidget):
@@ -102,9 +102,11 @@ class TraceabilityMatrixWidget(QWidget):
                 item = QTableWidgetItem(f"{count}")
                 item.setTextAlignment(Qt.AlignCenter)
 
-                # V-model 쌍이면 강조
+                # V-model 쌍 또는 순차 쌍이면 강조
                 is_pair = (VMODEL_PAIRS.get(swe_i) == swe_j or
-                          VMODEL_PAIRS.get(swe_j) == swe_i)
+                          VMODEL_PAIRS.get(swe_j) == swe_i or
+                          SEQUENTIAL_PAIRS.get(swe_i) == swe_j or
+                          SEQUENTIAL_PAIRS.get(swe_j) == swe_i)
 
                 if is_pair:
                     if pct >= 100:

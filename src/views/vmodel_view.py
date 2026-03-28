@@ -12,7 +12,7 @@ from src.models.project import ProjectModel
 from src.models.oem import OemModel
 from src.models.traceability import TraceabilityModel
 from src.models.document import DocumentModel
-from src.utils.constants import SWE_STAGES, VMODEL_PAIRS
+from src.utils.constants import SWE_STAGES, VMODEL_PAIRS, SEQUENTIAL_PAIRS
 from src.widgets.clickable_node import ClickableNode
 from src.widgets.trace_line import TraceLine
 
@@ -137,17 +137,41 @@ class VModelWidget(QWidget):
             self.scene.addItem(node)
             nodes[swe] = (node, stage)
 
-        # 수직 화살표 (개발 흐름: SWE1→2→3, 검증 흐름: SWE4→5→6)
-        flow_pairs = [
-            ("SWE.1", "SWE.2"), ("SWE.2", "SWE.3"),
-            ("SWE.4", "SWE.5"), ("SWE.5", "SWE.6"),
-        ]
-        for src_swe, dst_swe in flow_pairs:
+        # 순차적 추적성 라인 (SWE.1→SWE.2, SWE.2→SWE.3: derives 관계)
+        for src_swe, dst_swe in SEQUENTIAL_PAIRS.items():
+            src_stage = stage_map.get(src_swe)
+            dst_stage = stage_map.get(dst_swe)
+            if src_stage and dst_stage and src_swe in positions and dst_swe in positions:
+                sx, sy = positions[src_swe]
+                dx, dy = positions[dst_swe]
+                completeness = TraceabilityModel.get_completeness_for_pair(
+                    src_stage["id"], dst_stage["id"], conn
+                )
+                trace = TraceLine(
+                    sx + node_w / 2, sy + node_h,
+                    dx + node_w / 2, dy,
+                    link_count=completeness["link_count"],
+                    completeness_pct=completeness["completeness_pct"],
+                    callback=self._on_trace_clicked,
+                    stage_ids=(src_stage["id"], dst_stage["id"]),
+                )
+                self.scene.addItem(trace)
+            elif src_swe in positions and dst_swe in positions:
+                sx, sy = positions[src_swe]
+                dx, dy = positions[dst_swe]
+                self.scene.addLine(
+                    sx + node_w / 2, sy + node_h,
+                    dx + node_w / 2, dy,
+                    QPen(QColor("#C7C7CC"), 2, Qt.SolidLine)
+                )
+
+        # 검증 흐름 화살표 (SWE.4→5→6: 단순 흐름 표시)
+        verify_flow = [("SWE.4", "SWE.5"), ("SWE.5", "SWE.6")]
+        for src_swe, dst_swe in verify_flow:
             if src_swe in positions and dst_swe in positions:
                 sx, sy = positions[src_swe]
                 dx, dy = positions[dst_swe]
-                # 연결점: 소스 하단 → 대상 상단
-                arrow = self.scene.addLine(
+                self.scene.addLine(
                     sx + node_w / 2, sy + node_h,
                     dx + node_w / 2, dy,
                     QPen(QColor("#C7C7CC"), 2, Qt.SolidLine)
