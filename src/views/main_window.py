@@ -120,6 +120,10 @@ class MainWindow(QMainWindow):
         self.act_matrix.triggered.connect(self._show_trace_matrix)
         toolbar.addAction(self.act_matrix)
 
+        self.act_report = QAction("Generate ASPICE Report", self)
+        self.act_report.triggered.connect(self._generate_aspice_report)
+        toolbar.addAction(self.act_report)
+
         # Search input in toolbar
         toolbar.addSeparator()
         self.search_input = QLineEdit()
@@ -393,6 +397,39 @@ class MainWindow(QMainWindow):
                     self.refresh_all()
                 except Exception as e:
                     QMessageBox.warning(self, "Import Error", str(e))
+
+    def _generate_aspice_report(self):
+        """Generate ASPICE compliance report as HTML file."""
+        if not self.current_project_id:
+            QMessageBox.information(
+                self, "No Project Selected",
+                "Please select a project first.\n프로젝트를 먼저 선택해주세요."
+            )
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save ASPICE Report / ASPICE 보고서 저장",
+            "", "HTML Files (*.html);;All Files (*)"
+        )
+        if path:
+            try:
+                from src.services.compliance_report_service import generate_compliance_report
+                generate_compliance_report(
+                    self.current_project_id,
+                    phase_id=self.current_phase_id,
+                    output_path=path,
+                )
+                QMessageBox.information(
+                    self, "Report Generated / 보고서 생성 완료",
+                    f"ASPICE compliance report saved to:\n"
+                    f"ASPICE 준수 보고서 저장 완료:\n{path}"
+                )
+                self.status_bar.showMessage(
+                    "ASPICE report generated / ASPICE 보고서 생성 완료"
+                )
+            except Exception as e:
+                QMessageBox.warning(
+                    self, "Report Error / 보고서 오류", str(e)
+                )
 
     def refresh_all(self):
         """전체 새로고침"""
