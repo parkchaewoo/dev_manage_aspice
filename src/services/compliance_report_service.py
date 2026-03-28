@@ -802,9 +802,9 @@ def _html_vmodel_traceability(vmodel_data, sequential_data=None):
         <div class="progress-fill" style="width:{pct:.0f}%;background:{clr}"></div>
     </div> {pct:.1f}%
 </td></tr>
-<tr><td>Docs in {left} / {left} 문서 수</td><td>{comp['docs_stage_1']}</td></tr>
-<tr><td>Docs in {right} / {right} 문서 수</td><td>{comp['docs_stage_2']}</td></tr>
-<tr><td>Linked Docs / 연결된 문서</td><td>{comp['linked_docs']}</td></tr>
+<tr><td>Items in {left} / {left} 아이템 수</td><td>{comp.get('items_stage_1', comp.get('docs_stage_1', 0))}</td></tr>
+<tr><td>Items in {right} / {right} 아이템 수</td><td>{comp.get('items_stage_2', comp.get('docs_stage_2', 0))}</td></tr>
+<tr><td>Linked Items / 연결된 아이템</td><td>{comp.get('linked_items', comp.get('linked_docs', 0))}</td></tr>
 </table>
 """)
 
