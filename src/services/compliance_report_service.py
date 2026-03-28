@@ -531,15 +531,15 @@ def _render_content_preview(content, swe_key):
 
 
 def _svg_vmodel(stage_data):
-    """Generate an inline SVG V-Model diagram (600x300px)."""
+    """Generate an inline SVG V-Model diagram (700x320px)."""
     import math
     positions = {
-        "SWE.1": (30, 30),
-        "SWE.6": (430, 30),
-        "SWE.2": (110, 130),
-        "SWE.5": (350, 130),
-        "SWE.3": (190, 230),
-        "SWE.4": (270, 230),
+        "SWE.1": (20, 30),
+        "SWE.6": (540, 30),
+        "SWE.2": (120, 140),
+        "SWE.5": (440, 140),
+        "SWE.3": (220, 250),
+        "SWE.4": (340, 250),
     }
     box_w, box_h = 120, 50
 
@@ -551,7 +551,7 @@ def _svg_vmodel(stage_data):
     }
 
     svg_parts = [
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" '
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 320" '
         'width="600" height="300" style="font-family:sans-serif;">'
     ]
 
