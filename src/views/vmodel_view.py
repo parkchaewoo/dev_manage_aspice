@@ -190,6 +190,28 @@ class VModelWidget(QWidget):
             )
             self.scene.addItem(trace)
 
+            # 클릭하기 쉬운 라벨 버튼 (라인 중간)
+            mid_x = (lx + node_w + rx) / 2 - 40
+            mid_y = (ly + ry) / 2 + node_h / 2 - 12
+            pct = completeness["completeness_pct"]
+            cnt = completeness["link_count"]
+            btn_color = "#34C759" if pct >= 100 else "#FF9500" if pct > 0 else "#FF3B30"
+            from PyQt5.QtWidgets import QGraphicsProxyWidget, QPushButton as QPB
+            trace_btn = QPB(f"{cnt} links ({pct:.0f}%) - Click to view")
+            trace_btn.setStyleSheet(
+                f"QPushButton {{ background:{btn_color}; color:white; border:none; "
+                f"border-radius:10px; padding:4px 8px; font-size:10px; }}"
+                f"QPushButton:hover {{ opacity:0.8; }}"
+            )
+            trace_btn.setCursor(Qt.PointingHandCursor)
+            left_id, right_id = left["id"], right["id"]
+            trace_btn.clicked.connect(lambda _, s1=left_id, s2=right_id: self._on_trace_clicked(s1, s2))
+            proxy = QGraphicsProxyWidget()
+            proxy.setWidget(trace_btn)
+            proxy.setPos(mid_x, mid_y)
+            proxy.setZValue(15)
+            self.scene.addItem(proxy)
+
         # 타이틀 텍스트
         title_text = self.scene.addText(
             "Development / 개발", QFont("sans-serif", 10)
