@@ -300,7 +300,10 @@ class ProjectTreeWidget(QWidget):
         )
         if reply == QMessageBox.Yes:
             PhaseModel.delete(phase_id)
-            self.refresh()
+            try:
+                self.window().refresh_all()
+            except Exception:
+                self.refresh()
 
     def _delete_project(self, project_id):
         from PyQt5.QtWidgets import QMessageBox
@@ -311,4 +314,7 @@ class ProjectTreeWidget(QWidget):
         )
         if reply == QMessageBox.Yes:
             ProjectModel.delete(project_id)
-            self.refresh()
+            try:
+                self.window().refresh_all()
+            except Exception:
+                self.refresh()
