@@ -1,142 +1,71 @@
-# Unit Test Report / 단위 시험 보고서
+# Unit Test Report
+# 단위 시험 보고서
 
----
-<!-- GUIDE: SWE.3 상세 설계에 대해 각 소프트웨어 단위를 검증하는 시험 보고서입니다 -->
+## Document Info / 문서 정보
 
-| Field / 항목 | Value / 값 |
-|---|---|
-| Project Name | {project_name} |
+| Field | Value |
+|-------|-------|
+| Project | {project_name} |
 | OEM | {oem_name} |
-| Document ID | {document_id} |
-| Version | 0.1 |
 | Date | {date} |
-| Author | |
+| Author | ___ |
+| Version | 0.1 |
 | Status | Draft |
 
-## Input Artifacts / 입력 산출물
-| Artifact | Source |
-|---|---|
-| Detailed Design (SWE.3) | SWE.3 |
-| Source Code | SWE.3 |
-| Coding Guidelines | Quality |
+---
 
-## Output Artifacts / 출력 산출물
-| Artifact | Target |
-|---|---|
-| Unit Test Report (this) | SWE.5 Integration |
-| Coverage Report | Quality Assurance |
+## 1. Test Environment / 시험 환경
+
+| Item / 항목 | Value / 값 |
+|------------|-----------|
+| Test Framework | ___ |
+| Compiler | ___ |
+| Coverage Tool | ___ |
 
 ---
 
-## 1. Test Scope / 시험 범위
-<!-- GUIDE: V-Model 쌍: SWE.3(상세설계) ↔ SWE.4(단위검증) -->
-본 문서는 SWE.3에서 구현한 소프트웨어 단위에 대한 검증 결과를 기술합니다.
+## 2. Test Cases / 시험 항목
+
+(SWE.3에서 정의한 함수별 테스트를 작성 / Write tests for each function from SWE.3)
+
+| TC-ID | Function / 함수 | Description / 시험 내용 | Expected / 기대값 | Actual / 실제값 | Result |
+|-------|----------------|----------------------|------------------|---------------|--------|
+| UT-001 | ___ | ___ | ___ | ___ | Pass / Fail |
+| UT-002 | ___ | ___ | ___ | ___ | Pass / Fail |
+| UT-003 | ___ | ___ | ___ | ___ | Pass / Fail |
+| (추가 / Add more) | | | | | |
 
 ---
 
-## 2. Test Environment / 시험 환경
+## 3. Coverage / 커버리지 결과
 
-| Item / 항목 | Description / 설명 |
-|---|---|
-| Test Framework | Google Test / Unity / Cantata |
-| Compiler | GCC ARM 12.2 / Green Hills MULTI |
-| Coverage Tool | LDRA / Parasoft C/C++test / gcov |
-| Static Analysis | Polyspace / QAC / PC-lint |
-| Target MCU | (or Host simulation) |
-| OS | AUTOSAR OS / FreeRTOS / Bare-metal |
+(코드 커버리지 측정 결과를 기록 / Record code coverage measurement results)
 
----
-
-## 3. Test Case Matrix / 시험 항목 매트릭스
-<!-- GUIDE: SWE.3의 각 함수에 대한 테스트 케이스를 작성하세요 -->
-
-| TC-ID | Function / 함수 | Description / 시험 내용 | Input | Expected Output | Actual Output | Result |
-|---|---|---|---|---|---|---|
-| UT-001 | CalcAssistTorque | Normal operation: angle=10°, speed=50km/h | angle=10.0, speed=50.0 | torque=3.5 Nm (±0.1) | | Pass/Fail |
-| UT-002 | CalcAssistTorque | Zero speed (parking): high assist | angle=45.0, speed=0.0 | torque=10.0 Nm (±0.5) | | |
-| UT-003 | CalcAssistTorque | Max speed: minimal assist | angle=10.0, speed=200.0 | torque=0.5 Nm (±0.1) | | |
-| UT-004 | CalcAssistTorque | Output saturation: max torque | angle=720.0, speed=0.0 | torque=12.0 Nm (max) | | |
-| UT-005 | CalcAssistTorque | Safety state DEGRADED | angle=10.0, state=DEGRADED | torque ≤ 6.0 Nm (50%) | | |
-| UT-006 | ReadSteeringAngle | Normal range | ADC raw=2048 | angle=0.0° | | |
-| UT-007 | ReadSteeringAngle | Boundary: max positive | ADC raw=4095 | angle=720.0° | | |
-| UT-008 | ReadSteeringAngle | Boundary: max negative | ADC raw=0 | angle=-720.0° | | |
-| UT-009 | ReadSteeringAngle | Invalid input: sensor disconnect | ADC raw=0xFFFF | Error flag set | | |
-| UT-010 | CheckSensorValidity | Valid value in range | raw=500.0, range=±720 | TRUE | | |
-| UT-011 | CheckSensorValidity | Out of range | raw=800.0, range=±720 | FALSE, fault flag | | |
-| UT-012 | FilterSensorValue | Step response | raw=100.0, prev=0.0 | filtered=30.0 (α=0.3) | | |
-| UT-013 | UpdateSafetyState | No faults | fault_mask=0x0 | state=NORMAL | | |
-| UT-014 | UpdateSafetyState | Critical fault | fault_mask=0x01 | state=SAFE_STATE | | |
-| UT-015 | WriteDtc | Store DTC | code=C1001 | NVM write success | | |
+| Module / 모듈 | Statement % | Branch % | Target / 목표 | Status |
+|--------------|------------|---------|-------------|--------|
+| ___ | ___% | ___% | 100% / 100% | Pass / Fail |
+| ___ | ___% | ___% | 100% / 100% | Pass / Fail |
+| **Overall / 전체** | ___% | ___% | | |
 
 ---
 
-## 4. Coverage Results / 커버리지 결과
-<!-- GUIDE: 커버리지 목표: Statement 100%, Branch 100%, MC/DC 100% (ASIL D) -->
-
-| Module / 모듈 | Statement % | Branch % | MC/DC % | Target | Status |
-|---|---|---|---|---|---|
-| ControlLogic | | | | 100/100/100 | |
-| SensorInput | | | | 100/100/- | |
-| SafetyMonitor | | | | 100/100/100 | |
-| ActuatorOutput | | | | 100/100/- | |
-| DiagManager | | | | 100/100/- | |
-| CommManager | | | | 100/100/- | |
-| **Overall** | | | | | |
-
----
-
-## 5. Static Analysis Results / 정적 분석 결과
-
-| Category | Total | Critical | Major | Minor | Suppressed |
-|---|---|---|---|---|---|
-| MISRA-C:2012 Required | | 0 | | | |
-| MISRA-C:2012 Advisory | | 0 | | | |
-| Compiler Warnings | | 0 | | | |
-| Polyspace Red/Orange | | 0 | | | |
-
----
-
-## 6. Defect Summary / 결함 요약
-
-| Defect ID | TC-ID | Severity | Description / 설명 | Status | Fix Date |
-|---|---|---|---|---|---|
-| DEF-001 | UT-004 | Major | (예시) Torque saturation logic off-by-one | Closed | |
-| | | | (결함을 기록하세요) | | |
+## 4. Test Summary / 시험 요약
 
 | Metric / 지표 | Value / 값 |
-|---|---|
-| Total Test Cases / 전체 시험 수 | |
-| Passed | |
-| Failed | |
-| Blocked | |
-| Pass Rate / 합격률 | |
-| Defect Density | defects / KLOC |
+|-------------|-----------|
+| Total Test Cases / 전체 시험 수 | ___ |
+| Passed / 통과 | ___ |
+| Failed / 실패 | ___ |
+| Pass Rate / 합격률 | ___% |
 
 ---
 
-## 7. Traceability / 추적성 (SWE.3 → SWE.4)
+## 5. Review / 검토 이력
 
-| SWE.3 Function | TC-IDs | Coverage |
-|---|---|---|
-| CalcAssistTorque | UT-001~005 | Full |
-| ReadSteeringAngle | UT-006~009 | Full |
-| CheckSensorValidity | UT-010~011 | Full |
-| FilterSensorValue | UT-012 | Full |
-| UpdateSafetyState | UT-013~014 | Full |
-| WriteDtc | UT-015 | Full |
-
----
-
-## 8. Review Criteria / 검토 기준
-| # | Criteria | Check |
-|---|---|---|
-| 1 | All SWE.3 functions have test cases | ☐ |
-| 2 | Coverage targets met (Statement/Branch/MC-DC) | ☐ |
-| 3 | All test cases executed and results recorded | ☐ |
-| 4 | No open critical/major defects | ☐ |
-| 5 | Static analysis clean (0 critical violations) | ☐ |
-| 6 | Boundary values and error cases tested | ☐ |
-| 7 | Traceability to SWE.3 complete | ☐ |
+| Date / 날짜 | Reviewer / 검토자 | Result / 결과 | Comments / 비고 |
+|------------|-----------------|--------------|----------------|
+| ___ | ___ | Approved / Rejected | ___ |
+| | | | |
 
 ---
 *Generated by ASPICE Process Manager*

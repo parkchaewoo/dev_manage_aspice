@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QTableWidget, QTableWidgetItem, QPushButton, QComboBox,
     QHeaderView, QTextBrowser, QTextEdit, QDialog, QLineEdit, QFormLayout,
-    QFileDialog, QMessageBox, QGroupBox, QTabWidget, QSplitter
+    QFileDialog, QMessageBox, QGroupBox, QTabWidget, QSplitter, QSlider
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QFont
@@ -133,13 +133,15 @@ class DocumentEditorWidget(QWidget):
 
         self.table = QTableWidget()
         self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Name / 문서명", "Status", ""])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.setHorizontalHeaderLabels(["Document", "Status", "Preview"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Interactive)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.table.setColumnWidth(0, 140)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
+        self.table.setWordWrap(True)
         self.table.cellClicked.connect(self._on_cell_clicked)
         left_layout.addWidget(self.table)
 
@@ -169,6 +171,21 @@ class DocumentEditorWidget(QWidget):
         self.btn_export_html.setMaximumWidth(120)
         self.btn_export_html.clicked.connect(lambda: self._export_html(self._selected_doc_id) if self._selected_doc_id else None)
         title_row.addWidget(self.btn_export_html)
+
+        # 글자 크기 조절
+        title_row.addWidget(QLabel("A"))
+        self.font_slider = QSlider(Qt.Horizontal)
+        self.font_slider.setMinimum(10)
+        self.font_slider.setMaximum(20)
+        self.font_slider.setValue(13)
+        self.font_slider.setMaximumWidth(80)
+        self.font_slider.setToolTip("Font size / 글자 크기")
+        self.font_slider.valueChanged.connect(self._on_font_size_changed)
+        title_row.addWidget(self.font_slider)
+        self.font_size_label = QLabel("13")
+        self.font_size_label.setMaximumWidth(20)
+        title_row.addWidget(self.font_size_label)
+
         right_layout.addLayout(title_row)
 
         # 미리보기 / 편집 탭
@@ -258,11 +275,23 @@ class DocumentEditorWidget(QWidget):
             status_item.setBackground(QColor(color))
             self.table.setItem(i, 1, status_item)
 
-            edit_btn = QPushButton("Edit")
-            edit_btn.setMaximumWidth(60)
-            edit_btn.setProperty("secondary", True)
-            edit_btn.clicked.connect(lambda _, d=doc["id"]: self._edit_document(d))
-            self.table.setCellWidget(i, 2, edit_btn)
+            # 내용 미리보기 (첫 줄)
+            try:
+                content = doc["content"] or ""
+            except (IndexError, KeyError):
+                content = ""
+            first_line = ""
+            for line in content.split("\n"):
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#") and not stripped.startswith("|") and not stripped.startswith("---") and not stripped.startswith("<!--"):
+                    first_line = stripped[:60]
+                    break
+            if not first_line and content.strip():
+                first_line = content.strip()[:60]
+            preview_item = QTableWidgetItem(first_line or "(empty)")
+            preview_item.setForeground(QColor("#8E8E93"))
+            self.table.setItem(i, 2, preview_item)
+            self.table.setRowHeight(i, 36)
 
         # 첫 문서 자동 선택
         if len(docs) > 0:
@@ -314,6 +343,19 @@ class DocumentEditorWidget(QWidget):
 
         # 버전 이력 로드
         self._load_version_history(doc_id)
+
+    def _on_font_size_changed(self, size):
+        """글자 크기 변경"""
+        self.font_size_label.setText(str(size))
+        self.content_edit.setStyleSheet(
+            f"QTextEdit {{ font-family:'Courier New','Monaco','Menlo',monospace; "
+            f"font-size:{size}px; background:#FAFAFA; "
+            f"border:1px solid #E5E5EA; border-radius:8px; padding:8px; }}"
+        )
+        self.preview.setStyleSheet(
+            f"QTextBrowser {{ background:#FFFFFF; border:1px solid #E5E5EA; "
+            f"border-radius:8px; padding:12px; font-size:{size}px; }}"
+        )
 
     def _refresh_preview(self):
         """편집 내용으로 미리보기 새로고침"""
