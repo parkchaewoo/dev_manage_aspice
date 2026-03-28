@@ -872,3 +872,14 @@ def save_theme(theme):
     settings = _load_settings()
     settings["theme"] = theme
     _save_settings(settings)
+
+
+def get_user_name():
+    settings = _load_settings()
+    return settings.get("user_name", "")
+
+
+def save_user_name(name):
+    settings = _load_settings()
+    settings["user_name"] = name
+    _save_settings(settings)
