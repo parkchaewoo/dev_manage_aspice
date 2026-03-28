@@ -185,7 +185,7 @@ class TestComplianceReport(unittest.TestCase):
                 path = f.name
             generate_compliance_report(proj, output_path=path, conn=conn)
             self.assertTrue(os.path.exists(path))
-            with open(path, 'r') as f:
+            with open(path, 'r', encoding='utf-8') as f:
                 content = f.read()
             self.assertIn("TestProject", content)
             self.assertIn("SWE.1", content)
