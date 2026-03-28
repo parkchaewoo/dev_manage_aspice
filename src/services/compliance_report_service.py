@@ -24,7 +24,7 @@ def _read_version():
     """Read application version from VERSION file."""
     try:
         base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        with open(os.path.join(base, APP_VERSION_FILE), "r") as f:
+        with open(os.path.join(base, APP_VERSION_FILE), "r", encoding="utf-8") as f:
             return f.read().strip()
     except Exception:
         return "0.1.0"

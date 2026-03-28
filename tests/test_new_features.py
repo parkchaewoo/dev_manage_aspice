@@ -73,7 +73,7 @@ class TestExportService(unittest.TestCase):
         try:
             export_to_markdown(self.doc_id, path, self.conn)
             self.assertTrue(os.path.exists(path))
-            with open(path, 'r') as f:
+            with open(path, 'r', encoding='utf-8') as f:
                 content = f.read()
             self.assertIn("TestProject", content)
         finally:
@@ -87,7 +87,7 @@ class TestExportService(unittest.TestCase):
         try:
             export_project_report(self.proj_id, path, self.conn)
             self.assertTrue(os.path.exists(path))
-            with open(path, 'r') as f:
+            with open(path, 'r', encoding='utf-8') as f:
                 content = f.read()
             self.assertIn("TestProject", content)
             self.assertIn("SWE.1", content)
@@ -148,7 +148,7 @@ class TestBackupService(unittest.TestCase):
             export_to_json(path, conn)
             self.assertTrue(os.path.exists(path))
 
-            with open(path, 'r') as f:
+            with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             self.assertIn("oems", data)
             self.assertEqual(len(data["oems"]), 1)

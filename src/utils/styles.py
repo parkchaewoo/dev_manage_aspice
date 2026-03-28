@@ -840,7 +840,7 @@ def _load_settings():
     """설정 파일 로드"""
     if os.path.exists(_SETTINGS_PATH):
         try:
-            with open(_SETTINGS_PATH, "r") as f:
+            with open(_SETTINGS_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
@@ -850,8 +850,8 @@ def _load_settings():
 def _save_settings(settings):
     """설정 파일 저장"""
     os.makedirs(os.path.dirname(_SETTINGS_PATH), exist_ok=True)
-    with open(_SETTINGS_PATH, "w") as f:
-        json.dump(settings, f, indent=2)
+    with open(_SETTINGS_PATH, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2, ensure_ascii=False)
 
 
 def get_stylesheet(theme="light"):
