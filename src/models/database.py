@@ -125,3 +125,45 @@ def is_db_initialized(conn=None):
     if should_close:
         conn.close()
     return count > 0
+
+
+def search_all(keyword, conn=None):
+    """문서명, 체크리스트에서 키워드 검색"""
+    should_close = conn is None
+    if conn is None:
+        conn = get_connection()
+
+    results = []
+    like = f"%{keyword}%"
+
+    # 문서 검색
+    docs = conn.execute(
+        """SELECT d.id, d.name, d.status, s.swe_level, s.id as stage_id
+           FROM documents d
+           JOIN stages s ON d.stage_id = s.id
+           WHERE d.name LIKE ?""", (like,)
+    ).fetchall()
+    for d in docs:
+        results.append({
+            "type": "document", "id": d["id"], "name": d["name"],
+            "context": f"{d['swe_level']} | {d['status']}",
+            "stage_id": d["stage_id"],
+        })
+
+    # 체크리스트 검색
+    items = conn.execute(
+        """SELECT c.id, c.description, c.is_checked, s.swe_level, s.id as stage_id
+           FROM checklist_items c
+           JOIN stages s ON c.stage_id = s.id
+           WHERE c.description LIKE ?""", (like,)
+    ).fetchall()
+    for c in items:
+        results.append({
+            "type": "checklist", "id": c["id"], "name": c["description"],
+            "context": f"{c['swe_level']} | {'Done' if c['is_checked'] else 'Pending'}",
+            "stage_id": c["stage_id"],
+        })
+
+    if should_close:
+        conn.close()
+    return results

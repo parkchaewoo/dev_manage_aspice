@@ -1,7 +1,8 @@
 """프로젝트 대시보드 - 개요 화면"""
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QGridLayout, QProgressBar, QScrollArea
+    QGridLayout, QProgressBar, QScrollArea, QPushButton,
+    QFileDialog, QMessageBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QColor
@@ -85,10 +86,19 @@ class DashboardWidget(QWidget):
         # 상세 프레임 업데이트
         self._clear_layout(self.detail_layout)
 
-        # 프로젝트 제목
+        # 프로젝트 제목 + Export 버튼
+        title_row = QHBoxLayout()
         title = QLabel(f"{oem['name']} > {project['name']}")
         title.setProperty("heading", True)
-        self.detail_layout.addWidget(title)
+        title_row.addWidget(title)
+        title_row.addStretch()
+
+        export_btn = QPushButton("Export Report")
+        export_btn.setProperty("secondary", True)
+        export_btn.setMaximumWidth(140)
+        export_btn.clicked.connect(lambda: self._export_report(project_id))
+        title_row.addWidget(export_btn)
+        self.detail_layout.addLayout(title_row)
 
         status_label = QLabel(f"Status: {project['status']}")
         status_label.setProperty("subheading", True)
@@ -196,6 +206,19 @@ class DashboardWidget(QWidget):
         card.mousePressEvent = lambda e, pid=project["id"]: self.project_selected.emit(pid)
 
         return card
+
+    def _export_report(self, project_id):
+        """Export full project report as Markdown."""
+        from src.services.export_service import export_project_report
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Project Report", "", "Markdown Files (*.md);;All Files (*)"
+        )
+        if path:
+            try:
+                export_project_report(project_id, path)
+                QMessageBox.information(self, "Export", f"Report exported to:\n{path}")
+            except Exception as e:
+                QMessageBox.warning(self, "Export Error", str(e))
 
     def _clear_cards(self):
         while self.cards_layout.count():

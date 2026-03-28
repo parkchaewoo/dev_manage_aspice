@@ -2,7 +2,8 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QTableWidget, QTableWidgetItem, QPushButton, QComboBox,
-    QHeaderView, QTextBrowser, QDialog, QLineEdit, QFormLayout
+    QHeaderView, QTextBrowser, QDialog, QLineEdit, QFormLayout,
+    QFileDialog, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
@@ -93,6 +94,18 @@ class DocumentEditorWidget(QWidget):
             edit_btn.clicked.connect(lambda _, d=doc["id"]: self._edit_document(d))
             btn_layout.addWidget(edit_btn)
 
+            md_btn = QPushButton("Export MD")
+            md_btn.setMaximumWidth(80)
+            md_btn.setProperty("secondary", True)
+            md_btn.clicked.connect(lambda _, d=doc["id"]: self._export_md(d))
+            btn_layout.addWidget(md_btn)
+
+            html_btn = QPushButton("Export HTML")
+            html_btn.setMaximumWidth(90)
+            html_btn.setProperty("secondary", True)
+            html_btn.clicked.connect(lambda _, d=doc["id"]: self._export_html(d))
+            btn_layout.addWidget(html_btn)
+
             self.table.setCellWidget(i, 3, btn_widget)
 
         if should_close:
@@ -113,10 +126,36 @@ class DocumentEditorWidget(QWidget):
                     f"<p><b>Notes / 메모:</b> {doc['notes'] or '-'}</p>"
                 )
 
+    def _export_md(self, doc_id):
+        """Export document as Markdown."""
+        from src.services.export_service import export_to_markdown
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export as Markdown", "", "Markdown Files (*.md);;All Files (*)"
+        )
+        if path:
+            try:
+                export_to_markdown(doc_id, path)
+                QMessageBox.information(self, "Export", f"Exported to:\n{path}")
+            except Exception as e:
+                QMessageBox.warning(self, "Export Error", str(e))
+
+    def _export_html(self, doc_id):
+        """Export document as HTML."""
+        from src.services.export_service import export_to_html
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export as HTML", "", "HTML Files (*.html);;All Files (*)"
+        )
+        if path:
+            try:
+                export_to_html(doc_id, path)
+                QMessageBox.information(self, "Export", f"Exported to:\n{path}")
+            except Exception as e:
+                QMessageBox.warning(self, "Export Error", str(e))
+
     def _add_document(self):
         if not self.stage_id:
             return
-        dialog = DocumentDialog(self)
+        dialog = DocumentDialog(self, stage_id=self.stage_id)
         if dialog.exec_():
             data = dialog.get_data()
             DocumentModel.create(self.stage_id, **data)
@@ -134,11 +173,12 @@ class DocumentEditorWidget(QWidget):
 
 
 class DocumentDialog(QDialog):
-    def __init__(self, parent=None, doc=None):
+    def __init__(self, parent=None, doc=None, stage_id=None):
         super().__init__(parent)
         self.setWindowTitle("Document / 문서" if not doc else "Edit Document / 문서 편집")
         self.setMinimumWidth(400)
         self.doc = doc
+        self.stage_id = stage_id
         self._setup_ui()
 
     def _setup_ui(self):
@@ -182,6 +222,13 @@ class DocumentDialog(QDialog):
                 self.status_combo.setCurrentIndex(idx)
             self.reviewer_edit.setText(self.doc["reviewer"] or "")
             self.notes_edit.setText(self.doc["notes"] or "")
+        elif self.stage_id:
+            # Auto-fill name with generated ID for new documents
+            try:
+                auto_id = DocumentModel.get_next_id(self.stage_id)
+                self.name_edit.setText(auto_id)
+            except Exception:
+                pass
 
     def get_data(self):
         return {

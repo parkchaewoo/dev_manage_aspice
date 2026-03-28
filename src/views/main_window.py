@@ -1,9 +1,10 @@
 """메인 윈도우 - iOS 캘린더 스타일"""
 from PyQt5.QtWidgets import (
     QMainWindow, QDockWidget, QStackedWidget, QToolBar,
-    QAction, QMessageBox, QWidget, QVBoxLayout, QLabel, QStatusBar
+    QAction, QMessageBox, QWidget, QVBoxLayout, QLabel, QStatusBar,
+    QApplication, QLineEdit, QFileDialog
 )
-from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve
+from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint
 from PyQt5.QtGui import QIcon
 
 from src.models.database import get_connection
@@ -15,6 +16,9 @@ from src.views.traceability_matrix import TraceabilityMatrixWidget
 from src.views.schedule_view import ScheduleWidget
 from src.views.oem_config_dialog import OemConfigDialog
 from src.views.guide_panel import GuidePanel
+from src.views.search_widget import SearchWidget
+from src.utils.styles import get_stylesheet, get_saved_theme, save_theme
+from src.services.notification_service import get_notification_summary
 
 
 class MainWindow(QMainWindow):
@@ -23,6 +27,7 @@ class MainWindow(QMainWindow):
         self.version = version
         self.current_project_id = None
         self.current_stage_id = None
+        self.current_theme = get_saved_theme()
         self.setWindowTitle(f"ASPICE Process Manager v{version}")
         self.setMinimumSize(1200, 800)
         self.resize(1400, 900)
@@ -33,8 +38,14 @@ class MainWindow(QMainWindow):
         self._setup_menubar()
         self._setup_statusbar()
 
+        # Apply saved theme
+        QApplication.instance().setStyleSheet(get_stylesheet(self.current_theme))
+
         # 초기 화면은 대시보드
         self._show_dashboard()
+
+        # Check notifications on startup
+        self._check_notifications()
 
     def _setup_central(self):
         """중앙 스택 위젯 설정"""
@@ -107,6 +118,19 @@ class MainWindow(QMainWindow):
         self.act_matrix.triggered.connect(self._show_trace_matrix)
         toolbar.addAction(self.act_matrix)
 
+        # Search input in toolbar
+        toolbar.addSeparator()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search / 검색...")
+        self.search_input.setMaximumWidth(220)
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.returnPressed.connect(self._open_search)
+        toolbar.addWidget(self.search_input)
+
+        # Search popup widget
+        self.search_widget = SearchWidget(self)
+        self.search_widget.result_selected.connect(self._on_search_result)
+
     def _setup_menubar(self):
         """메뉴바 설정"""
         menubar = self.menuBar()
@@ -114,6 +138,12 @@ class MainWindow(QMainWindow):
         # File 메뉴
         file_menu = menubar.addMenu("File")
         file_menu.addAction("Refresh", self.refresh_all)
+        file_menu.addSeparator()
+        file_menu.addAction("Backup Database...", self._backup_database)
+        file_menu.addAction("Restore Database...", self._restore_database)
+        file_menu.addSeparator()
+        file_menu.addAction("Export as JSON...", self._export_json)
+        file_menu.addAction("Import from JSON...", self._import_json)
         file_menu.addSeparator()
         file_menu.addAction("Exit", self.close)
 
@@ -134,6 +164,10 @@ class MainWindow(QMainWindow):
         view_menu.addSeparator()
         view_menu.addAction(self.tree_dock.toggleViewAction())
         view_menu.addAction(self.guide_dock.toggleViewAction())
+        view_menu.addSeparator()
+        self.act_toggle_theme = QAction("Toggle Dark Mode", self)
+        self.act_toggle_theme.triggered.connect(self._toggle_theme)
+        view_menu.addAction(self.act_toggle_theme)
 
         # Help 메뉴
         help_menu = menubar.addMenu("Help")
@@ -208,8 +242,32 @@ class MainWindow(QMainWindow):
             f"<p>Python + PyQt5 + SQLite3</p>"
         )
 
+    def _toggle_theme(self):
+        """라이트/다크 테마 전환"""
+        if self.current_theme == "light":
+            self.current_theme = "dark"
+        else:
+            self.current_theme = "light"
+        QApplication.instance().setStyleSheet(get_stylesheet(self.current_theme))
+        save_theme(self.current_theme)
+        self.status_bar.showMessage(
+            f"Theme changed to {self.current_theme} / 테마 변경: {self.current_theme}"
+        )
+
+    def _check_notifications(self):
+        """시작 시 알림 확인 및 대시보드에 배너 표시"""
+        try:
+            summary = get_notification_summary()
+            self.dashboard.update_notifications(
+                summary.get("overdue", []),
+                summary.get("upcoming", [])
+            )
+        except Exception:
+            pass  # DB may not be initialized yet
+
     def refresh_all(self):
-        """전체 새��고침"""
+        """전체 새로고침"""
         self.project_tree.refresh()
         if self.current_project_id:
             self.dashboard.load_project(self.current_project_id)
+        self._check_notifications()

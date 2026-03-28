@@ -61,6 +61,45 @@ class DocumentModel:
             conn.close()
 
     @staticmethod
+    def get_next_id(stage_id, prefix="DOC", conn=None):
+        """Generate next sequential ID like SWE1-REQ-001.
+
+        Uses the stage's SWE level to determine the prefix:
+        SWE.1->REQ, SWE.2->SAD, SWE.3->SDD, SWE.4->UT, SWE.5->IT, SWE.6->QT
+        """
+        should_close = conn is None
+        if conn is None:
+            conn = get_connection()
+
+        swe_prefix_map = {
+            "SWE.1": "REQ",
+            "SWE.2": "SAD",
+            "SWE.3": "SDD",
+            "SWE.4": "UT",
+            "SWE.5": "IT",
+            "SWE.6": "QT",
+        }
+
+        stage = conn.execute(
+            "SELECT swe_level FROM stages WHERE id = ?", (stage_id,)
+        ).fetchone()
+        if stage:
+            swe_level = stage["swe_level"]
+            prefix = swe_prefix_map.get(swe_level, prefix)
+            swe_num = swe_level.replace("SWE.", "")
+        else:
+            swe_num = "0"
+
+        count = conn.execute(
+            "SELECT COUNT(*) FROM documents WHERE stage_id = ?", (stage_id,)
+        ).fetchone()[0]
+
+        if should_close:
+            conn.close()
+
+        return f"SWE{swe_num}-{prefix}-{count + 1:03d}"
+
+    @staticmethod
     def delete(doc_id, conn=None):
         should_close = conn is None
         if conn is None:
