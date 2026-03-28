@@ -2,7 +2,7 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QTabWidget, QPushButton, QComboBox, QTextEdit, QScrollArea,
-    QTableWidget, QTableWidgetItem, QHeaderView
+    QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
@@ -19,8 +19,10 @@ from src.views.document_editor import DocumentEditorWidget
 from src.views.test_result_widget import TestResultWidget
 from src.views.attachment_widget import AttachmentWidget
 from src.views.review_record_dialog import ReviewRecordDialog
-from src.models.document import DocumentModel
 from src.models.review_record import ReviewRecordModel
+
+
+STAGE_ORDER = ["SWE.1", "SWE.2", "SWE.3", "SWE.4", "SWE.5", "SWE.6"]
 
 
 class StageDetailWidget(QWidget):
@@ -194,7 +196,74 @@ class StageDetailWidget(QWidget):
 
     def _on_status_changed(self, new_status):
         if self.stage_id:
+            self._check_stage_order(new_status)
             StageModel.update(self.stage_id, status=new_status)
+
+    def _check_stage_order(self, new_status):
+        """이전 단계 완료 여부 확인 - warn but don't block"""
+        if new_status in ("Not Started",):
+            return  # Always allow going back to Not Started
+
+        try:
+            conn = get_connection()
+            stage = StageModel.get_by_id(self.stage_id, conn)
+            if not stage:
+                conn.close()
+                return
+
+            swe = stage["swe_level"]
+            idx = STAGE_ORDER.index(swe) if swe in STAGE_ORDER else -1
+
+            if idx > 0:
+                prev_swe = STAGE_ORDER[idx - 1]
+                all_stages = StageModel.get_by_project(stage["project_id"], conn)
+
+                # Find previous stage in same phase
+                prev_stage = None
+                try:
+                    stage_phase_id = stage["phase_id"]
+                except (IndexError, KeyError):
+                    stage_phase_id = None
+
+                for s in all_stages:
+                    if s["swe_level"] == prev_swe:
+                        try:
+                            s_phase_id = s["phase_id"]
+                        except (IndexError, KeyError):
+                            s_phase_id = None
+                        if s_phase_id == stage_phase_id:
+                            prev_stage = s
+                            break
+
+                if prev_stage:
+                    prev_status = prev_stage["status"]
+                    warn_msg = None
+
+                    if new_status == "In Progress" and prev_status == "Not Started":
+                        warn_msg = (
+                            f"Warning: Previous stage {prev_swe} is still '{prev_status}'.\n"
+                            f"It is recommended to start {prev_swe} before starting {swe}.\n\n"
+                            f"경고: 이전 단계 {prev_swe}이(가) 아직 '{prev_status}' 상태입니다.\n"
+                            f"{swe}을(를) 시작하기 전에 {prev_swe}을(를) 먼저 시작하는 것을 권장합니다."
+                        )
+                    elif new_status == "Completed" and prev_status != "Completed":
+                        warn_msg = (
+                            f"Warning: Previous stage {prev_swe} is not yet completed ('{prev_status}').\n"
+                            f"It is recommended to complete {prev_swe} before completing {swe}.\n\n"
+                            f"경고: 이전 단계 {prev_swe}이(가) 아직 완료되지 않았습니다 ('{prev_status}').\n"
+                            f"{swe}을(를) 완료하기 전에 {prev_swe}을(를) 먼저 완료하는 것을 권장합니다."
+                        )
+
+                    if warn_msg:
+                        QMessageBox.warning(
+                            self,
+                            "Stage Order Warning / 단계 순서 경고",
+                            warn_msg
+                        )
+
+            conn.close()
+        except Exception:
+            pass  # Don't block on errors
 
     def _save_notes(self):
         if self.stage_id:

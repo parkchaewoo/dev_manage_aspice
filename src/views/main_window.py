@@ -3,7 +3,7 @@ import os
 from PyQt5.QtWidgets import (
     QMainWindow, QDockWidget, QStackedWidget, QToolBar,
     QAction, QMessageBox, QWidget, QVBoxLayout, QLabel, QStatusBar,
-    QApplication, QLineEdit, QFileDialog
+    QApplication, QLineEdit, QFileDialog, QInputDialog
 )
 from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint
 from PyQt5.QtGui import QIcon
@@ -181,6 +181,8 @@ class MainWindow(QMainWindow):
 
         # Help 메뉴
         help_menu = menubar.addMenu("Help")
+        help_menu.addAction("Set User Name / 사용자 설정...", self._set_user_name)
+        help_menu.addSeparator()
         help_menu.addAction("About", self._show_about)
 
     def _setup_statusbar(self):
@@ -266,6 +268,19 @@ class MainWindow(QMainWindow):
         dialog = OemConfigDialog(self)
         dialog.exec_()
         self.refresh_all()
+
+    def _set_user_name(self):
+        """Set user name for version tracking."""
+        from src.utils.styles import get_user_name, save_user_name
+        current = get_user_name()
+        name, ok = QInputDialog.getText(
+            self, "Set User Name / 사용자 설정",
+            "Enter your name / 이름을 입력하세요:",
+            QLineEdit.Normal, current
+        )
+        if ok and name.strip():
+            save_user_name(name.strip())
+            self.status_bar.showMessage(f"User name set to: {name.strip()}")
 
     def _show_about(self):
         QMessageBox.about(

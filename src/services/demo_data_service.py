@@ -25,15 +25,28 @@ def _load_oem_yaml(filename):
         return ""
 
 
-def _load_template_for_doc(template_id, project_name="", oem_name=""):
+def _load_template_for_doc(template_id, project_name="", oem_name="", swe_level=""):
     """Load template content for a document's template_type, filling placeholders."""
     from src.services.export_service import _TEMPLATE_MAP, _TEMPLATES_DIR
-    filename = _TEMPLATE_MAP.get(template_id)
+    filename = _TEMPLATE_MAP.get(template_id) if template_id else None
+    # Fallback: if template_id is empty or file not found, use SWE level
+    if not filename and swe_level:
+        filename = _TEMPLATE_MAP.get(swe_level)
     if not filename:
         return ""
     path = os.path.join(_TEMPLATES_DIR, filename)
     if not os.path.isfile(path):
-        return ""
+        # Second fallback: try SWE level if template_id file was missing
+        if swe_level and template_id:
+            fallback_filename = _TEMPLATE_MAP.get(swe_level)
+            if fallback_filename:
+                path = os.path.join(_TEMPLATES_DIR, fallback_filename)
+                if not os.path.isfile(path):
+                    return ""
+            else:
+                return ""
+        else:
+            return ""
     try:
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -103,8 +116,8 @@ def _create_stages_from_config(project_id, config_yaml_str, conn, phase_id=None)
             swe_doc_ids.append(did)
 
             # Load and set template content for the document
-            if template_id:
-                content = _load_template_for_doc(template_id, project_name, oem_name)
+            if template_id or swe_level:
+                content = _load_template_for_doc(template_id, project_name, oem_name, swe_level=swe_level)
                 if content:
                     DocumentModel.update(did, content=content, conn=conn)
         doc_ids[swe_level] = swe_doc_ids

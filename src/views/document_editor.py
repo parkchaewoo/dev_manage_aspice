@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QTableWidget, QTableWidgetItem, QPushButton, QComboBox,
     QHeaderView, QTextBrowser, QTextEdit, QDialog, QLineEdit, QFormLayout,
-    QFileDialog, QMessageBox
+    QFileDialog, QMessageBox, QGroupBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
@@ -12,7 +12,9 @@ import os
 from datetime import date
 
 from src.models.document import DocumentModel
+from src.models.database import get_connection
 from src.utils.constants import DocumentStatus, STATUS_COLORS
+from src.utils.styles import get_user_name
 
 
 class DocumentEditorWidget(QWidget):
@@ -69,6 +71,23 @@ class DocumentEditorWidget(QWidget):
         self.btn_save_content.clicked.connect(self._save_content)
         save_content_layout.addWidget(self.btn_save_content)
         layout.addLayout(save_content_layout)
+
+        # Version History collapsible section
+        self.version_group = QGroupBox("Version History / 버전 이력")
+        self.version_group.setCheckable(True)
+        self.version_group.setChecked(False)
+        version_layout = QVBoxLayout(self.version_group)
+        self.version_table = QTableWidget()
+        self.version_table.setColumnCount(4)
+        self.version_table.setHorizontalHeaderLabels([
+            "Version", "Date / 날짜", "Changed By / 변경자", "Description / 설명"
+        ])
+        self.version_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.version_table.verticalHeader().setVisible(False)
+        self.version_table.setMaximumHeight(150)
+        version_layout.addWidget(self.version_table)
+        self.version_group.toggled.connect(self._on_version_group_toggled)
+        layout.addWidget(self.version_group)
 
     def load_stage(self, stage_id, conn=None):
         """단계의 문서 목록 로드"""
@@ -137,13 +156,62 @@ class DocumentEditorWidget(QWidget):
             return
         content = self.content_edit.toPlainText()
         try:
+            # Save version before updating
+            conn = get_connection()
+            old_doc = DocumentModel.get_by_id(self._selected_doc_id, conn)
+            if old_doc:
+                try:
+                    old_content = old_doc["content"] or ""
+                except (IndexError, KeyError):
+                    old_content = ""
+                if old_content:
+                    user_name = get_user_name() or "Unknown"
+                    # Get next version number
+                    row = conn.execute(
+                        "SELECT COALESCE(MAX(version_number), 0) + 1 FROM document_versions WHERE document_id = ?",
+                        (self._selected_doc_id,)
+                    ).fetchone()
+                    next_version = row[0] if row else 1
+                    conn.execute(
+                        "INSERT INTO document_versions (document_id, version_number, content_snapshot, change_description, changed_by) VALUES (?, ?, ?, ?, ?)",
+                        (self._selected_doc_id, next_version, old_content, "Content updated", user_name)
+                    )
+                    conn.commit()
+            conn.close()
+
             DocumentModel.update(self._selected_doc_id, content=content)
+            self._load_version_history(self._selected_doc_id)
             QMessageBox.information(
                 self, "Saved / 저장됨",
                 "Document content saved successfully.\n문서 내용이 저장되었습니다."
             )
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save content:\n{e}")
+
+    def _on_version_group_toggled(self, checked):
+        """Show/hide version history table."""
+        self.version_table.setVisible(checked)
+        if checked and self._selected_doc_id:
+            self._load_version_history(self._selected_doc_id)
+
+    def _load_version_history(self, doc_id):
+        """Load version history for the given document."""
+        try:
+            conn = get_connection()
+            rows = conn.execute(
+                "SELECT version_number, created_at, changed_by, change_description "
+                "FROM document_versions WHERE document_id = ? ORDER BY version_number DESC",
+                (doc_id,)
+            ).fetchall()
+            conn.close()
+            self.version_table.setRowCount(len(rows))
+            for i, row in enumerate(rows):
+                self.version_table.setItem(i, 0, QTableWidgetItem(str(row[0])))
+                self.version_table.setItem(i, 1, QTableWidgetItem(str(row[1] or "")))
+                self.version_table.setItem(i, 2, QTableWidgetItem(str(row[2] or "")))
+                self.version_table.setItem(i, 3, QTableWidgetItem(str(row[3] or "")))
+        except Exception:
+            self.version_table.setRowCount(0)
 
     def _on_cell_clicked(self, row, col):
         """문서 선택 시 내용을 편집기에 로드"""
@@ -157,6 +225,7 @@ class DocumentEditorWidget(QWidget):
                     self.content_edit.setPlainText(doc["content"] or "")
                 except (IndexError, KeyError):
                     self.content_edit.setPlainText("")
+                self._load_version_history(doc_id)
 
     def _export_md(self, doc_id):
         """Export document as Markdown."""
