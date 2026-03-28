@@ -12,6 +12,8 @@ from src.models.project import ProjectModel
 from src.models.stage import StageModel
 from src.models.oem import OemModel
 from src.utils.constants import SWE_STAGES, STATUS_COLORS, StageStatus
+from src.widgets.chart_widgets import PieChartWidget, BarChartWidget, GaugeWidget
+from src.widgets.notification_banner import NotificationBanner
 
 
 class DashboardWidget(QWidget):
@@ -36,6 +38,15 @@ class DashboardWidget(QWidget):
         self.content_layout.setSpacing(20)
         scroll.setWidget(scroll_widget)
         main_layout.addWidget(scroll)
+
+        # Notification banners (Feature 10)
+        self.overdue_banner = NotificationBanner(NotificationBanner.TYPE_OVERDUE)
+        self.overdue_banner.hide()
+        self.content_layout.addWidget(self.overdue_banner)
+
+        self.upcoming_banner = NotificationBanner(NotificationBanner.TYPE_UPCOMING)
+        self.upcoming_banner.hide()
+        self.content_layout.addWidget(self.upcoming_banner)
 
         # 타이틀
         self.title_label = QLabel("Dashboard / 대시보드")
@@ -149,6 +160,74 @@ class DashboardWidget(QWidget):
             stages_layout.addLayout(row_layout)
 
         self.detail_layout.addWidget(stages_frame)
+
+        # === Charts Section (Feature 9) ===
+        charts_title = QLabel("Analytics / 분석")
+        charts_title.setProperty("subheading", True)
+        self.detail_layout.addWidget(charts_title)
+
+        charts_row = QHBoxLayout()
+        charts_row.setSpacing(16)
+
+        # Collect stage status counts for PieChart
+        status_counts = {}
+        stage_stats_list = []
+        total_pct_sum = 0
+        for stage in stages:
+            status = stage["status"]
+            status_counts[status] = status_counts.get(status, 0) + 1
+            stats = StageModel.get_completion_stats(stage["id"], conn)
+            stage_stats_list.append((stage["swe_level"], stats["overall_pct"]))
+            total_pct_sum += stats["overall_pct"]
+
+        # PieChartWidget - stage status distribution
+        pie_frame = QFrame()
+        pie_frame.setProperty("card", True)
+        pie_layout = QVBoxLayout(pie_frame)
+        pie_layout.setContentsMargins(12, 12, 12, 12)
+        pie_chart = PieChartWidget("Stage Status Distribution")
+        pie_data = []
+        status_order = [
+            (StageStatus.NOT_STARTED, "#8E8E93"),
+            (StageStatus.IN_PROGRESS, "#007AFF"),
+            (StageStatus.IN_REVIEW, "#FF9500"),
+            (StageStatus.COMPLETED, "#34C759"),
+        ]
+        for s_name, s_color in status_order:
+            count = status_counts.get(s_name, 0)
+            if count > 0:
+                pie_data.append((s_name, count, s_color))
+        pie_chart.set_data(pie_data)
+        pie_layout.addWidget(pie_chart)
+        charts_row.addWidget(pie_frame)
+
+        # BarChartWidget - per-stage document completion
+        bar_frame = QFrame()
+        bar_frame.setProperty("card", True)
+        bar_layout = QVBoxLayout(bar_frame)
+        bar_layout.setContentsMargins(12, 12, 12, 12)
+        bar_chart = BarChartWidget("Document Completion by Stage")
+        bar_data = []
+        for swe_level, pct in stage_stats_list:
+            color = "#34C759" if pct >= 80 else ("#FF9500" if pct >= 40 else "#007AFF")
+            bar_data.append((swe_level, pct, 100, color))
+        bar_chart.set_data(bar_data)
+        bar_layout.addWidget(bar_chart)
+        charts_row.addWidget(bar_frame)
+
+        # GaugeWidget - overall project progress
+        gauge_frame = QFrame()
+        gauge_frame.setProperty("card", True)
+        gauge_layout = QVBoxLayout(gauge_frame)
+        gauge_layout.setContentsMargins(12, 12, 12, 12)
+        gauge = GaugeWidget("Overall Progress")
+        overall_pct = total_pct_sum / len(stages) if stages else 0
+        gauge.set_value(overall_pct, "Project Completion")
+        gauge_layout.addWidget(gauge)
+        charts_row.addWidget(gauge_frame)
+
+        self.detail_layout.addLayout(charts_row)
+
         self.detail_frame.show()
         conn.close()
 
@@ -219,6 +298,11 @@ class DashboardWidget(QWidget):
                 QMessageBox.information(self, "Export", f"Report exported to:\n{path}")
             except Exception as e:
                 QMessageBox.warning(self, "Export Error", str(e))
+
+    def update_notifications(self, overdue_items, upcoming_items):
+        """알림 배너 업데이트 (Feature 10)"""
+        self.overdue_banner.set_notifications(overdue_items)
+        self.upcoming_banner.set_notifications(upcoming_items)
 
     def _clear_cards(self):
         while self.cards_layout.count():

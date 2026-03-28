@@ -265,6 +265,104 @@ class MainWindow(QMainWindow):
         except Exception:
             pass  # DB may not be initialized yet
 
+    def _open_search(self):
+        """Open search popup below the search input."""
+        text = self.search_input.text().strip()
+        if text:
+            self.search_widget.search_input.setText(text)
+            pos = self.search_input.mapToGlobal(
+                QPoint(0, self.search_input.height())
+            )
+            self.search_widget.show_at(pos)
+
+    def _on_search_result(self, result_type, result_id):
+        """Handle search result click - navigate to the item."""
+        if result_type == "document":
+            from src.models.document import DocumentModel
+            doc = DocumentModel.get_by_id(result_id)
+            if doc:
+                self._on_stage_clicked(doc["stage_id"])
+        elif result_type == "checklist":
+            conn = get_connection()
+            item = conn.execute(
+                "SELECT stage_id FROM checklist_items WHERE id = ?", (result_id,)
+            ).fetchone()
+            conn.close()
+            if item:
+                self._on_stage_clicked(item["stage_id"])
+        self.status_bar.showMessage(f"Navigated to {result_type} #{result_id}")
+
+    def _backup_database(self):
+        """Backup SQLite database to a file."""
+        from src.services.backup_service import backup_database
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Backup Database", "", "SQLite Database (*.db);;All Files (*)"
+        )
+        if path:
+            try:
+                backup_database(path)
+                QMessageBox.information(self, "Backup", f"Database backed up to:\n{path}")
+            except Exception as e:
+                QMessageBox.warning(self, "Backup Error", str(e))
+
+    def _restore_database(self):
+        """Restore SQLite database from a backup file."""
+        from src.services.backup_service import restore_database
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Restore Database", "", "SQLite Database (*.db);;All Files (*)"
+        )
+        if path:
+            reply = QMessageBox.question(
+                self, "Restore Database",
+                "This will replace the current database with the backup.\n"
+                "All current data will be lost. Continue?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                try:
+                    restore_database(path)
+                    QMessageBox.information(
+                        self, "Restore",
+                        "Database restored successfully.\nPlease restart the application."
+                    )
+                    self.refresh_all()
+                except Exception as e:
+                    QMessageBox.warning(self, "Restore Error", str(e))
+
+    def _export_json(self):
+        """Export all data as JSON."""
+        from src.services.backup_service import export_to_json
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export as JSON", "", "JSON Files (*.json);;All Files (*)"
+        )
+        if path:
+            try:
+                export_to_json(path)
+                QMessageBox.information(self, "Export", f"Data exported to:\n{path}")
+            except Exception as e:
+                QMessageBox.warning(self, "Export Error", str(e))
+
+    def _import_json(self):
+        """Import data from JSON file."""
+        from src.services.backup_service import import_from_json
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import from JSON", "", "JSON Files (*.json);;All Files (*)"
+        )
+        if path:
+            reply = QMessageBox.question(
+                self, "Import from JSON",
+                "This will replace ALL current data with the imported data.\n"
+                "All current data will be lost. Continue?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                try:
+                    import_from_json(path)
+                    QMessageBox.information(self, "Import", "Data imported successfully.")
+                    self.refresh_all()
+                except Exception as e:
+                    QMessageBox.warning(self, "Import Error", str(e))
+
     def refresh_all(self):
         """전체 새로고침"""
         self.project_tree.refresh()
