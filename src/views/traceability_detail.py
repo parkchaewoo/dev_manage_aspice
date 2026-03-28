@@ -1,102 +1,27 @@
-"""추적성 상세 뷰 - 문서 레벨 다대다 연결 (드래그 앤 드롭 지원) + 항목 레벨 추적성"""
+"""추적성 상세 뷰 - 항목 레벨 추적성 (QTableWidget 기반)"""
 import json
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QGraphicsView, QGraphicsScene, QGraphicsRectItem,
-    QGraphicsTextItem, QPushButton, QComboBox, QGraphicsLineItem
+    QPushButton, QComboBox, QTableWidget, QTableWidgetItem,
+    QHeaderView, QAbstractItemView, QGroupBox, QFormLayout
 )
-from PyQt5.QtCore import Qt, QRectF, QPointF, QLineF
-from PyQt5.QtGui import QPen, QColor, QBrush, QFont, QPainter, QPainterPath
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor, QFont
 
 from src.models.database import get_connection
 from src.models.stage import StageModel
 from src.models.document import DocumentModel
 from src.models.traceability import TraceabilityModel
-from src.utils.constants import SWE_STAGES, STATUS_COLORS, DocumentStatus, LinkType
-
-
-class DraggableDocCard(QGraphicsRectItem):
-    """드래그 가능한 문서 카드 - 드래그로 추적성 링크 생성"""
-
-    def __init__(self, x, y, w, h, doc_id, side, dialog, parent=None):
-        super().__init__(x, y, w, h, parent)
-        self.doc_id = doc_id
-        self.side = side  # "left" or "right"
-        self.dialog = dialog
-        self.setAcceptHoverEvents(True)
-        self.setAcceptDrops(True)
-        self._is_hover = False
-        self._drag_line = None
-
-    def hoverEnterEvent(self, event):
-        """마우스 오버 시 하이라이트"""
-        self._is_hover = True
-        self.setPen(QPen(QColor("#0A84FF"), 3))
-        super().hoverEnterEvent(event)
-
-    def hoverLeaveEvent(self, event):
-        """마우스 떠날 때 원래 스타일 복원"""
-        self._is_hover = False
-        self.dialog._restore_card_pen(self)
-        super().hoverLeaveEvent(event)
-
-    def mousePressEvent(self, event):
-        """드래그 시작"""
-        if event.button() == Qt.LeftButton:
-            self.dialog._drag_source = self
-            center = self.rect().center() + self.pos()
-            # Create temporary drag line
-            self._drag_line = QGraphicsLineItem(
-                QLineF(center, event.scenePos())
-            )
-            self._drag_line.setPen(QPen(QColor("#0A84FF"), 2, Qt.DashLine))
-            self.scene().addItem(self._drag_line)
-            # Highlight valid drop targets (opposite side cards)
-            self.dialog._highlight_drop_targets(self.side)
-            event.accept()
-        else:
-            super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        """드래그 중 라인 업데이트"""
-        if self._drag_line:
-            center = self.rect().center() + self.pos()
-            self._drag_line.setLine(QLineF(center, event.scenePos()))
-            event.accept()
-        else:
-            super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        """드롭 - 타겟 카드 위에서 놓으면 링크 생성"""
-        if self._drag_line:
-            # Remove drag line
-            self.scene().removeItem(self._drag_line)
-            self._drag_line = None
-
-            # Find card under drop point
-            target = self.dialog._find_card_at(event.scenePos())
-            if target and target is not self and target.side != self.side:
-                # Create traceability link
-                self.dialog._create_drag_link(self.doc_id, target.doc_id)
-
-            # Reset highlights
-            self.dialog._reset_highlights()
-            self.dialog._drag_source = None
-            event.accept()
-        else:
-            super().mouseReleaseEvent(event)
+from src.utils.constants import SWE_STAGES, LinkType
 
 
 class TraceabilityDetailDialog(QDialog):
-    """두 단계 사이의 문서 레벨 추적성 상세 뷰"""
+    """두 단계 사이의 항목 레벨 추적성 상세 뷰"""
 
     def __init__(self, stage_id_1, stage_id_2, parent=None):
         super().__init__(parent)
         self.stage_id_1 = stage_id_1
         self.stage_id_2 = stage_id_2
-        self._drag_source = None
-        self._doc_cards = []  # list of DraggableDocCard
-        self._card_original_pens = {}  # card -> original QPen
         self.setWindowTitle("Traceability Detail / 추적성 상세")
         self.setMinimumSize(800, 500)
         self.resize(900, 600)
@@ -108,40 +33,93 @@ class TraceabilityDetailDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        # 헤더
+        # Header
         self.header_label = QLabel()
         self.header_label.setProperty("heading", True)
+        font = QFont()
+        font.setPointSize(13)
+        font.setBold(True)
+        self.header_label.setFont(font)
         layout.addWidget(self.header_label)
+
+        self.doc_label = QLabel()
+        layout.addWidget(self.doc_label)
 
         self.summary_label = QLabel()
         self.summary_label.setProperty("caption", True)
         layout.addWidget(self.summary_label)
 
-        # 그래픽스 뷰
-        self.scene = QGraphicsScene()
-        self.view = QGraphicsView(self.scene)
-        self.view.setRenderHint(QPainter.Antialiasing)
-        self.view.setStyleSheet("background-color: #FAFAFA; border-radius: 8px;")
-        layout.addWidget(self.view, 1)
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setFrameShadow(QFrame.Sunken)
+        layout.addWidget(sep)
 
-        # 추가 버튼
+        # Table
+        self.table = QTableWidget()
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Source Item", "Link Type", "Target Item", "Del"])
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setAlternatingRowColors(True)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.table.setColumnWidth(3, 50)
+        layout.addWidget(self.table, 1)
+
+        # Add Link section
+        add_group = QGroupBox("Add Link")
+        add_layout = QHBoxLayout(add_group)
+        add_layout.setSpacing(8)
+
+        add_layout.addWidget(QLabel("Source:"))
+        self.source_combo = QComboBox()
+        self.source_combo.setMinimumWidth(160)
+        add_layout.addWidget(self.source_combo)
+
+        add_layout.addWidget(QLabel("Type:"))
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(LinkType.ALL)
+        add_layout.addWidget(self.type_combo)
+
+        add_layout.addWidget(QLabel("Target:"))
+        self.target_combo = QComboBox()
+        self.target_combo.setMinimumWidth(160)
+        add_layout.addWidget(self.target_combo)
+
+        self.btn_add = QPushButton("Add Link")
+        self.btn_add.clicked.connect(self._add_link)
+        add_layout.addWidget(self.btn_add)
+
+        layout.addWidget(add_group)
+
+        # Close button
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-
-        self.btn_add_link = QPushButton("+ Add Trace Link / 추적성 추가")
-        self.btn_add_link.clicked.connect(self._add_link)
-        btn_layout.addWidget(self.btn_add_link)
-
         self.btn_close = QPushButton("Close / 닫기")
         self.btn_close.setProperty("secondary", True)
         self.btn_close.clicked.connect(self.accept)
         btn_layout.addWidget(self.btn_close)
         layout.addLayout(btn_layout)
 
+    def _get_item_ids_from_doc(self, doc):
+        """Parse item IDs from document JSON content."""
+        try:
+            content = doc["content"] or ""
+        except (KeyError, TypeError):
+            content = ""
+        if not content:
+            return []
+        try:
+            items = json.loads(content)
+            return [item.get("id", "") for item in items if isinstance(item, dict) and item.get("id")]
+        except (json.JSONDecodeError, TypeError):
+            return []
+
     def _load_data(self):
-        self.scene.clear()
-        self._doc_cards = []
-        self._card_original_pens = {}
         conn = get_connection()
 
         stage_1 = StageModel.get_by_id(self.stage_id_1, conn)
@@ -154,235 +132,187 @@ class TraceabilityDetailDialog(QDialog):
         swe_1 = stage_1["swe_level"]
         swe_2 = stage_2["swe_level"]
 
-        self.header_label.setText(
-            f"{swe_1} ({SWE_STAGES[swe_1]['name_ko']})  ←→  "
-            f"{swe_2} ({SWE_STAGES[swe_2]['name_ko']})"
-        )
-
         docs_1 = DocumentModel.get_by_stage(self.stage_id_1, conn)
         docs_2 = DocumentModel.get_by_stage(self.stage_id_2, conn)
         links = TraceabilityModel.get_between_stages(self.stage_id_1, self.stage_id_2, conn)
 
+        # Document names for display
+        doc_name_1 = docs_1[0]["name"] if docs_1 else "N/A"
+        doc_name_2 = docs_2[0]["name"] if docs_2 else "N/A"
+
+        # Collect item IDs from all documents per stage
+        source_items = []
+        source_doc_map = {}  # item_id -> doc_id
+        for doc in docs_1:
+            ids = self._get_item_ids_from_doc(doc)
+            for item_id in ids:
+                source_items.append(item_id)
+                source_doc_map[item_id] = doc["id"]
+
+        target_items = []
+        target_doc_map = {}
+        for doc in docs_2:
+            ids = self._get_item_ids_from_doc(doc)
+            for item_id in ids:
+                target_items.append(item_id)
+                target_doc_map[item_id] = doc["id"]
+
+        # Coverage: count source items that have at least one link
+        linked_source_items = set()
+        for link in links:
+            try:
+                src_item = link["source_item_id"]
+            except (KeyError, IndexError):
+                src_item = ""
+            if src_item:
+                linked_source_items.add(src_item)
+
+        total_source = len(source_items) if source_items else max(len(docs_1), 1)
+        covered = len(linked_source_items) if linked_source_items else len(links)
+        coverage_pct = int(covered / total_source * 100) if total_source > 0 else 0
+
+        # Header
+        self.header_label.setText(
+            f"Traceability: {swe_1} \u2194 {swe_2}"
+        )
+        self.doc_label.setText(
+            f"Documents: {doc_name_1} \u2194 {doc_name_2}"
+        )
         self.summary_label.setText(
-            f"Documents: {len(docs_1)} + {len(docs_2)}  |  "
-            f"Trace links: {len(links)}"
+            f"Links: {len(links)}  |  Coverage: {coverage_pct}%"
         )
 
-        # 문서 카드 배치
-        card_w, card_h = 200, 50
-        left_x, right_x = 30, 500
-        y_start = 30
-        y_gap = 70
+        # Populate table
+        self.table.setRowCount(len(links))
+        self._link_ids = []
+        for row_idx, link in enumerate(links):
+            try:
+                src_item = link["source_item_id"]
+            except (KeyError, IndexError):
+                src_item = ""
+            try:
+                tgt_item = link["target_item_id"]
+            except (KeyError, IndexError):
+                tgt_item = ""
 
-        # 좌측 단계 제목
-        left_title = self.scene.addText(
-            f"{swe_1}: {SWE_STAGES[swe_1]['name_ko']}",
-            QFont("sans-serif", 11, QFont.Bold)
-        )
-        left_title.setDefaultTextColor(QColor("#007AFF"))
-        left_title.setPos(left_x, 0)
+            source_display = src_item if src_item else link["source_name"]
+            target_display = tgt_item if tgt_item else link["target_name"]
+            link_type = link["link_type"]
+            link_id = link["id"]
+            self._link_ids.append(link_id)
 
-        # 우측 단계 제목
-        right_title = self.scene.addText(
-            f"{swe_2}: {SWE_STAGES[swe_2]['name_ko']}",
-            QFont("sans-serif", 11, QFont.Bold)
-        )
-        right_title.setDefaultTextColor(QColor("#007AFF"))
-        right_title.setPos(right_x, 0)
+            src_cell = QTableWidgetItem(source_display)
+            src_cell.setToolTip(f"Doc: {link['source_name']}")
+            self.table.setItem(row_idx, 0, src_cell)
 
-        # 링크로 연결된 문서 ID 수집
-        linked_source_ids = set()
-        linked_target_ids = set()
-        for link in links:
-            linked_source_ids.add(link["source_document_id"])
-            linked_target_ids.add(link["target_document_id"])
+            type_cell = QTableWidgetItem(link_type)
+            type_cell.setTextAlignment(Qt.AlignCenter)
+            color_map = {
+                LinkType.DERIVES: QColor("#007AFF"),
+                LinkType.VERIFIES: QColor("#34C759"),
+                LinkType.SATISFIES: QColor("#FF9500"),
+            }
+            type_cell.setForeground(color_map.get(link_type, QColor("#8E8E93")))
+            self.table.setItem(row_idx, 1, type_cell)
 
-        # 좌측 문서 카드
-        left_cards = {}
-        for i, doc in enumerate(docs_1):
-            y = y_start + i * y_gap
-            is_linked = doc["id"] in linked_source_ids or doc["id"] in linked_target_ids
-            item_count = self._get_item_count(doc)
-            card = self._draw_doc_card(
-                left_x, y, card_w, card_h,
-                doc["name"], doc["status"], is_linked,
-                doc_id=doc["id"], side="left", item_count=item_count
-            )
-            left_cards[doc["id"]] = (left_x + card_w, y + card_h / 2)
+            tgt_cell = QTableWidgetItem(target_display)
+            tgt_cell.setToolTip(f"Doc: {link['target_name']}")
+            self.table.setItem(row_idx, 2, tgt_cell)
 
-        # 우측 문서 카드
-        right_cards = {}
-        for i, doc in enumerate(docs_2):
-            y = y_start + i * y_gap
-            is_linked = doc["id"] in linked_source_ids or doc["id"] in linked_target_ids
-            item_count = self._get_item_count(doc)
-            card = self._draw_doc_card(
-                right_x, y, card_w, card_h,
-                doc["name"], doc["status"], is_linked,
-                doc_id=doc["id"], side="right", item_count=item_count
-            )
-            right_cards[doc["id"]] = (right_x, y + card_h / 2)
+            del_btn = QPushButton("x")
+            del_btn.setFixedSize(30, 24)
+            del_btn.setStyleSheet("color: #FF3B30; font-weight: bold; border: none;")
+            del_btn.clicked.connect(lambda checked, lid=link_id: self._delete_link(lid))
+            self.table.setCellWidget(row_idx, 3, del_btn)
 
-        # 연결선 그리기
-        for link in links:
-            src_pos = left_cards.get(link["source_document_id"]) or right_cards.get(link["source_document_id"])
-            dst_pos = right_cards.get(link["target_document_id"]) or left_cards.get(link["target_document_id"])
+        # Populate combo boxes
+        self.source_combo.clear()
+        self.target_combo.clear()
 
-            if src_pos and dst_pos:
-                color_map = {
-                    LinkType.DERIVES: "#007AFF",
-                    LinkType.VERIFIES: "#34C759",
-                    LinkType.SATISFIES: "#FF9500",
-                }
-                color = color_map.get(link["link_type"], "#8E8E93")
-                pen = QPen(QColor(color), 2)
-                self.scene.addLine(src_pos[0], src_pos[1], dst_pos[0], dst_pos[1], pen)
+        # Store doc maps for use in _add_link
+        self._source_doc_map = source_doc_map
+        self._target_doc_map = target_doc_map
+        self._docs_1 = docs_1
+        self._docs_2 = docs_2
 
-                # 링크 유형 라벨 + item IDs
-                mid_x = (src_pos[0] + dst_pos[0]) / 2
-                mid_y = (src_pos[1] + dst_pos[1]) / 2
-                src_item = link["source_item_id"] if link["source_item_id"] else ""
-                tgt_item = link["target_item_id"] if link["target_item_id"] else ""
-                if src_item and tgt_item:
-                    label_text = f"{src_item} \u2192 {tgt_item}"
-                elif src_item or tgt_item:
-                    label_text = f"{link['link_type']} ({src_item or tgt_item})"
-                else:
-                    label_text = link["link_type"]
-                label = self.scene.addText(label_text, QFont("sans-serif", 7))
-                label.setDefaultTextColor(QColor(color))
-                label.setPos(mid_x - 15, mid_y - 10)
+        if source_items:
+            for item_id in source_items:
+                self.source_combo.addItem(item_id, item_id)
+        elif docs_1:
+            for doc in docs_1:
+                self.source_combo.addItem(doc["name"], doc["name"])
+
+        if target_items:
+            for item_id in target_items:
+                self.target_combo.addItem(item_id, item_id)
+        elif docs_2:
+            for doc in docs_2:
+                self.target_combo.addItem(doc["name"], doc["name"])
 
         conn.close()
-        self.view.fitInView(self.scene.sceneRect().adjusted(-20, -20, 20, 20), Qt.KeepAspectRatio)
 
-    def _get_item_count(self, doc):
-        """Get item count from document's JSON content."""
-        try:
-            content = doc["content"] if doc["content"] else ""
-            if content:
-                items = json.loads(content)
-                if isinstance(items, list):
-                    return len(items)
-        except (json.JSONDecodeError, TypeError, KeyError):
-            pass
-        return 0
-
-    def _draw_doc_card(self, x, y, w, h, name, status, is_linked, doc_id=None, side="left", item_count=0):
-        """문서 카드 그리기 - 드래그 가능한 DraggableDocCard 사용"""
-        color = STATUS_COLORS.get(status, "#8E8E93")
-        border_color = color if is_linked else "#FF3B30"
-        border_width = 1.5 if is_linked else 2.5
-
-        pen = QPen(QColor(border_color), border_width)
-        brush = QBrush(QColor("#FFFFFF"))
-
-        if doc_id is not None:
-            rect = DraggableDocCard(x, y, w, h, doc_id, side, self)
-            rect.setPen(pen)
-            rect.setBrush(brush)
-            self.scene.addItem(rect)
-            self._doc_cards.append(rect)
-            self._card_original_pens[id(rect)] = pen
-        else:
-            rect = self.scene.addRect(QRectF(x, y, w, h), pen, brush)
-
-        display_name = name
-        if item_count > 0:
-            display_name = f"{name} ({item_count} items)"
-        name_text = self.scene.addText(display_name, QFont("sans-serif", 8))
-        name_text.setDefaultTextColor(QColor("#1C1C1E"))
-        name_text.setPos(x + 8, y + 4)
-        name_text.setTextWidth(w - 16)
-
-        status_text = self.scene.addText(status, QFont("sans-serif", 7))
-        status_text.setDefaultTextColor(QColor(color))
-        status_text.setPos(x + 8, y + h - 18)
-
-        if not is_linked:
-            warn = self.scene.addText("\u26A0 No trace", QFont("sans-serif", 7))
-            warn.setDefaultTextColor(QColor("#FF3B30"))
-            warn.setPos(x + w - 65, y + h - 18)
-
-        return rect
-
-    def _restore_card_pen(self, card):
-        """카드의 원래 펜 복원"""
-        original = self._card_original_pens.get(id(card))
-        if original:
-            card.setPen(original)
-
-    def _highlight_drop_targets(self, source_side):
-        """드롭 가능한 타겟 카드 하이라이트"""
-        for card in self._doc_cards:
-            if card.side != source_side:
-                card.setPen(QPen(QColor("#34C759"), 3))
-
-    def _reset_highlights(self):
-        """모든 카드 하이라이트 해제"""
-        for card in self._doc_cards:
-            self._restore_card_pen(card)
-
-    def _find_card_at(self, scene_pos):
-        """씬 좌표에서 DraggableDocCard 찾기"""
-        items = self.scene.items(scene_pos)
-        for item in items:
-            if isinstance(item, DraggableDocCard):
-                return item
-        return None
-
-    def _create_drag_link(self, source_doc_id, target_doc_id):
-        """드래그 앤 드롭으로 추적성 링크 생성"""
+    def _delete_link(self, link_id):
+        """Delete a traceability link and refresh."""
         conn = get_connection()
         try:
-            TraceabilityModel.create(
-                source_doc_id, target_doc_id,
-                link_type=LinkType.DERIVES,
-                conn=conn
-            )
+            TraceabilityModel.delete(link_id, conn=conn)
         finally:
             conn.close()
-        # Refresh the view
         self._load_data()
 
     def _add_link(self):
-        """추적성 링크 추가 다이얼로그"""
-        from PyQt5.QtWidgets import QDialog, QFormLayout, QDialogButtonBox
+        """Add a new traceability link from the combo selections."""
+        source_val = self.source_combo.currentData()
+        target_val = self.target_combo.currentData()
+        link_type = self.type_combo.currentText()
+
+        if not source_val or not target_val:
+            return
+
+        # Resolve document IDs
+        source_doc_id = self._source_doc_map.get(source_val)
+        target_doc_id = self._target_doc_map.get(target_val)
+
+        # If combos show document names (no item IDs), resolve from docs
+        if source_doc_id is None and self._docs_1:
+            for doc in self._docs_1:
+                if doc["name"] == source_val:
+                    source_doc_id = doc["id"]
+                    break
+            if source_doc_id is None:
+                source_doc_id = self._docs_1[0]["id"]
+            source_item_id = ""
+        else:
+            source_item_id = source_val if source_doc_id else ""
+            if source_doc_id is None and self._docs_1:
+                source_doc_id = self._docs_1[0]["id"]
+
+        if target_doc_id is None and self._docs_2:
+            for doc in self._docs_2:
+                if doc["name"] == target_val:
+                    target_doc_id = doc["id"]
+                    break
+            if target_doc_id is None:
+                target_doc_id = self._docs_2[0]["id"]
+            target_item_id = ""
+        else:
+            target_item_id = target_val if target_doc_id else ""
+            if target_doc_id is None and self._docs_2:
+                target_doc_id = self._docs_2[0]["id"]
+
+        if source_doc_id is None or target_doc_id is None:
+            return
+
         conn = get_connection()
-
-        docs_1 = DocumentModel.get_by_stage(self.stage_id_1, conn)
-        docs_2 = DocumentModel.get_by_stage(self.stage_id_2, conn)
-
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Add Traceability Link / 추적성 링크 추가")
-        form = QFormLayout(dialog)
-
-        source_combo = QComboBox()
-        for d in docs_1:
-            source_combo.addItem(d["name"], d["id"])
-        form.addRow("Source / 출처:", source_combo)
-
-        target_combo = QComboBox()
-        for d in docs_2:
-            target_combo.addItem(d["name"], d["id"])
-        form.addRow("Target / 대상:", target_combo)
-
-        type_combo = QComboBox()
-        type_combo.addItems(LinkType.ALL)
-        form.addRow("Type / 유형:", type_combo)
-
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        form.addRow(buttons)
-
-        if dialog.exec_():
+        try:
             TraceabilityModel.create(
-                source_combo.currentData(),
-                target_combo.currentData(),
-                type_combo.currentText(),
-                conn=conn
+                source_doc_id,
+                target_doc_id,
+                link_type=link_type,
+                source_item_id=source_item_id,
+                target_item_id=target_item_id,
+                conn=conn,
             )
-            self._load_data()
-
-        conn.close()
+        finally:
+            conn.close()
+        self._load_data()
