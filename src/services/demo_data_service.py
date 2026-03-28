@@ -344,6 +344,32 @@ def _create_full_traceability(doc_ids, conn):
             source_item_id="SWE3-FUN-002", target_item_id="SWE4-UT-002", conn=conn
         )
 
+    # === 순차 추적: SWE.4 → SWE.5 (Unit Test → Integration Test) ===
+    if doc_ids.get("SWE.4") and doc_ids.get("SWE.5"):
+        TraceabilityModel.create(
+            doc_ids["SWE.4"][0], doc_ids["SWE.5"][0],
+            "derives", "단위 검증 결과가 통합 시험에 입력",
+            source_item_id="SWE4-UT-001", target_item_id="SWE5-IT-001", conn=conn
+        )
+        TraceabilityModel.create(
+            doc_ids["SWE.4"][0], doc_ids["SWE.5"][0],
+            "derives", "단위 검증 결과가 통합 시험에 입력",
+            source_item_id="SWE4-UT-002", target_item_id="SWE5-IT-002", conn=conn
+        )
+
+    # === 순차 추적: SWE.5 → SWE.6 (Integration Test → Qualification Test) ===
+    if doc_ids.get("SWE.5") and doc_ids.get("SWE.6"):
+        TraceabilityModel.create(
+            doc_ids["SWE.5"][0], doc_ids["SWE.6"][0],
+            "derives", "통합 시험 결과가 적격성 시험에 입력",
+            source_item_id="SWE5-IT-001", target_item_id="SWE6-QT-001", conn=conn
+        )
+        TraceabilityModel.create(
+            doc_ids["SWE.5"][0], doc_ids["SWE.6"][0],
+            "derives", "통합 시험 결과가 적격성 시험에 입력",
+            source_item_id="SWE5-IT-002", target_item_id="SWE6-QT-002", conn=conn
+        )
+
 
 def create_demo_data(conn):
     """데모 데이터 생성"""
