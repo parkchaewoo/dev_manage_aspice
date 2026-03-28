@@ -71,13 +71,13 @@ class OemConfigDialog(QDialog):
 
         self.btn_add_phase = QPushButton("Add")
         self.btn_add_phase.setProperty("secondary", True)
-        self.btn_add_phase.setMaximumWidth(60)
+        self.btn_add_phase.setMaximumWidth(80)
         self.btn_add_phase.clicked.connect(self._add_phase)
         phase_btn_layout.addWidget(self.btn_add_phase)
 
         self.btn_remove_phase = QPushButton("Remove")
         self.btn_remove_phase.setProperty("secondary", True)
-        self.btn_remove_phase.setMaximumWidth(80)
+        self.btn_remove_phase.setMaximumWidth(90)
         self.btn_remove_phase.clicked.connect(self._remove_phase)
         phase_btn_layout.addWidget(self.btn_remove_phase)
 

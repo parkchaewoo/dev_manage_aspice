@@ -40,9 +40,9 @@ class StageDetailWidget(QWidget):
 
         # 상단 네비게이션
         nav = QHBoxLayout()
-        self.btn_back = QPushButton("< Back / 뒤로")
+        self.btn_back = QPushButton("< Back")
         self.btn_back.setProperty("secondary", True)
-        self.btn_back.setMaximumWidth(150)
+        self.btn_back.setMaximumWidth(100)
         self.btn_back.clicked.connect(self.back_requested.emit)
         nav.addWidget(self.btn_back)
         nav.addStretch()

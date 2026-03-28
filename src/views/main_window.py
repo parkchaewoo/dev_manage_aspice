@@ -129,7 +129,7 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search / 검색...")
-        self.search_input.setMaximumWidth(220)
+        self.search_input.setMaximumWidth(300)
         self.search_input.setClearButtonEnabled(True)
         self.search_input.returnPressed.connect(self._open_search)
         toolbar.addWidget(self.search_input)
