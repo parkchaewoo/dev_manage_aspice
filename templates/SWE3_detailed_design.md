@@ -57,19 +57,7 @@ END FUNCTION
 
 ---
 
-## 4. Traceability / 추적성
-
-(SWE.2 컴포넌트와 함수의 연결 / Link SWE.2 components to functions)
-
-| SWE.2 Component | Function | Unit Test ID |
-|-----------------|----------|-------------|
-| ___ | ___ | UT-001 |
-| ___ | ___ | UT-002 |
-| ___ | ___ | UT-003 |
-
----
-
-## 5. Review / 검토 이력
+## 4. Review / 검토 이력
 
 | Date / 날짜 | Reviewer / 검토자 | Result / 결과 | Comments / 비고 |
 |------------|-----------------|--------------|----------------|
