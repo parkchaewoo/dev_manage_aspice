@@ -9,144 +9,84 @@ stages:
     display_name: "Software Requirements Analysis"
     display_name_ko: "소프트웨어 요구사항 분석"
     required_documents:
-      - name: "Software Requirements Specification (SRS)"
-        template_id: "SWE1_requirements_spec"
+      - name: "Software Requirements Specification"
+        template_id: "srs"
         description: "Complete specification of software functional and non-functional requirements derived from system requirements."
-      - name: "Requirements Traceability Matrix"
-        template_id: "SWE1_traceability_matrix"
-        description: "Bidirectional traceability between system requirements and software requirements."
-      - name: "Requirements Analysis Report"
-        template_id: "SWE1_analysis_report"
-        description: "Analysis results including feasibility, consistency, and completeness checks."
     checklist:
       - "All system requirements have been allocated to software requirements"
       - "Each software requirement is uniquely identified and versioned"
       - "Non-functional requirements (timing, memory, safety) are quantified"
       - "Requirements are reviewed for consistency and completeness"
-      - "Bidirectional traceability to system requirements is established"
-      - "Impact analysis for requirement changes is documented"
-      - "Requirements baseline is approved by stakeholders"
-      - "Communication interfaces between software components are defined"
 
   SWE.2:
     enabled: true
     display_name: "Software Architectural Design"
     display_name_ko: "소프트웨어 아키텍처 설계"
     required_documents:
-      - name: "Software Architecture Description (SAD)"
-        template_id: "SWE2_architecture_design"
+      - name: "Software Architecture Design"
+        template_id: "sad"
         description: "High-level design describing software components, their interfaces, and interactions."
-      - name: "Interface Control Document (ICD)"
-        template_id: "SWE2_interface_control"
-        description: "Specification of all internal and external software interfaces."
-      - name: "Architecture Evaluation Report"
-        template_id: "SWE2_evaluation_report"
-        description: "Evaluation of the architecture against requirements and design criteria."
     checklist:
       - "Software architecture is derived from software requirements"
       - "All software components are identified and described"
       - "Component interfaces are fully specified"
-      - "Dynamic behavior (state machines, sequences) is modeled"
-      - "Resource consumption estimates are documented"
       - "Architecture supports required safety and security levels"
-      - "Architecture is reviewed and approved"
-      - "Traceability from software requirements to architectural elements is established"
 
   SWE.3:
     enabled: true
     display_name: "Software Detailed Design and Unit Construction"
     display_name_ko: "소프트웨어 상세 설계 및 유닛 구현"
     required_documents:
-      - name: "Software Detailed Design Document (SDD)"
-        template_id: "SWE3_detailed_design"
+      - name: "Software Detailed Design"
+        template_id: "sdd"
         description: "Detailed design of each software unit including algorithms, data structures, and logic."
-      - name: "Coding Guidelines Compliance Report"
-        template_id: "SWE3_coding_guidelines"
-        description: "Report on adherence to coding standards (MISRA, CERT, etc.)."
-      - name: "Static Analysis Report"
-        template_id: "SWE3_static_analysis"
-        description: "Results of static code analysis tools."
     checklist:
       - "Detailed design is derived from the software architecture"
       - "Each software unit is specified with its interfaces and behavior"
-      - "Algorithms and data structures are documented"
       - "Coding guidelines are defined and applied"
       - "Static analysis is performed with no critical findings"
-      - "Code reviews are conducted and documented"
-      - "Traceability from architecture to detailed design units is established"
-      - "Unit source code matches the detailed design"
 
   SWE.4:
     enabled: true
     display_name: "Software Unit Verification"
     display_name_ko: "소프트웨어 유닛 검증"
     required_documents:
-      - name: "Unit Test Plan"
-        template_id: "SWE4_unit_test_plan"
-        description: "Plan covering unit test strategy, scope, and pass/fail criteria."
       - name: "Unit Test Report"
-        template_id: "SWE4_unit_test_report"
+        template_id: "ut_report"
         description: "Results of unit testing including coverage metrics and defect summary."
-      - name: "Unit Test Case Specification"
-        template_id: "SWE4_test_cases"
-        description: "Detailed test cases for each software unit."
     checklist:
       - "Unit test plan is defined and reviewed"
       - "Test cases cover all detailed design elements"
-      - "Equivalence classes and boundary values are tested"
       - "Statement and branch coverage targets are met"
       - "All test results are recorded and traceable"
-      - "Regression tests are defined for changed units"
-      - "Defects are tracked and resolved before baseline"
-      - "Traceability from detailed design to unit tests is established"
 
   SWE.5:
     enabled: true
     display_name: "Software Integration and Integration Test"
     display_name_ko: "소프트웨어 통합 및 통합 테스트"
     required_documents:
-      - name: "Integration Test Plan"
-        template_id: "SWE5_integration_test_plan"
-        description: "Plan for integrating software components and verifying their interactions."
       - name: "Integration Test Report"
-        template_id: "SWE5_integration_test_report"
+        template_id: "it_report"
         description: "Results of integration testing including interface verification."
-      - name: "Integration Build Plan"
-        template_id: "SWE5_build_plan"
-        description: "Order and strategy for incremental integration of software components."
     checklist:
       - "Integration strategy and build order are defined"
       - "Integration test cases verify component interfaces"
       - "Data flow across component boundaries is tested"
-      - "Timing and resource usage at integration level are measured"
       - "All integration test results are recorded"
-      - "Regression tests are performed after each integration step"
-      - "Defects found during integration are tracked and resolved"
-      - "Traceability from architecture to integration tests is established"
 
   SWE.6:
     enabled: true
     display_name: "Software Qualification Test"
     display_name_ko: "소프트웨어 적격성 테스트"
     required_documents:
-      - name: "Qualification Test Plan"
-        template_id: "SWE6_qualification_test_plan"
-        description: "Plan for validating the software against its requirements specification."
       - name: "Qualification Test Report"
-        template_id: "SWE6_qualification_test_report"
+        template_id: "qt_report"
         description: "Results of qualification testing demonstrating requirement compliance."
-      - name: "Release Note"
-        template_id: "SWE6_release_note"
-        description: "Summary of software release including known issues and limitations."
     checklist:
       - "Qualification test plan covers all software requirements"
       - "Test environment matches target or is representative"
       - "Functional requirements are verified by test cases"
       - "Non-functional requirements (performance, robustness) are verified"
-      - "All test results are recorded and evaluated"
-      - "Defects are classified and resolved or documented"
-      - "Software release criteria are met"
-      - "Traceability from software requirements to qualification tests is complete"
 
 traceability_rules:
   - source_stage: "SWE.1"
