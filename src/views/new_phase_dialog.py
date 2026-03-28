@@ -8,6 +8,11 @@ from PyQt5.QtCore import Qt
 
 from src.models.database import get_connection
 from src.models.phase import PhaseModel
+from src.models.project import ProjectModel
+from src.models.oem import OemModel
+from src.utils.yaml_helpers import load_yaml_string
+
+_CUSTOM_OPTION = "Custom... / 직접 입력..."
 
 
 class NewPhaseDialog(QDialog):
@@ -17,7 +22,33 @@ class NewPhaseDialog(QDialog):
         self.inherit_from_phase_id = inherit_from_phase_id
         self.setWindowTitle("New Phase / 새 개발 단계")
         self.setMinimumWidth(450)
+        self._oem_phases = []
+        self._existing_phase_names = []
+        self._load_oem_phases()
         self._setup_ui()
+
+    def _load_oem_phases(self):
+        """Load OEM-defined phases from the project's OEM config."""
+        conn = get_connection()
+        try:
+            project = ProjectModel.get_by_id(self.project_id, conn)
+            if project:
+                oem = OemModel.get_by_id(project["oem_id"], conn)
+                if oem and oem["config_yaml"]:
+                    try:
+                        config = load_yaml_string(oem["config_yaml"])
+                        if config and isinstance(config, dict):
+                            phases = config.get("phases", [])
+                            if isinstance(phases, list):
+                                self._oem_phases = [str(p) for p in phases]
+                    except Exception:
+                        pass
+
+            # Load existing phase names to disable them
+            existing_phases = PhaseModel.get_by_project(self.project_id, conn)
+            self._existing_phase_names = [p["name"] for p in existing_phases]
+        finally:
+            conn.close()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -26,10 +57,31 @@ class NewPhaseDialog(QDialog):
         form = QFormLayout()
         form.setSpacing(10)
 
-        # Phase name
-        self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("Phase name / 단계 이름")
-        form.addRow("Name / 이름:", self.name_edit)
+        # Phase name - QComboBox with OEM-defined phases
+        self.name_combo = QComboBox()
+        self.name_combo.setEditable(False)
+        for phase_name in self._oem_phases:
+            self.name_combo.addItem(phase_name)
+        self.name_combo.addItem(_CUSTOM_OPTION)
+
+        # Disable phases that already exist in the project
+        for i in range(self.name_combo.count()):
+            item_text = self.name_combo.itemText(i)
+            if item_text in self._existing_phase_names and item_text != _CUSTOM_OPTION:
+                # Disable the item by setting its flags
+                model = self.name_combo.model()
+                item = model.item(i)
+                if item:
+                    item.setEnabled(False)
+
+        self.name_combo.currentIndexChanged.connect(self._on_name_combo_changed)
+        form.addRow("Name / 이름:", self.name_combo)
+
+        # Custom name input (hidden by default)
+        self.custom_name_edit = QLineEdit()
+        self.custom_name_edit.setPlaceholderText("Custom phase name / 사용자 정의 단계 이름")
+        self.custom_name_edit.setVisible(False)
+        form.addRow("", self.custom_name_edit)
 
         # Description
         self.desc_edit = QLineEdit()
@@ -88,6 +140,11 @@ class NewPhaseDialog(QDialog):
         btn_layout.addWidget(create_btn)
         layout.addLayout(btn_layout)
 
+    def _on_name_combo_changed(self, index):
+        """Show/hide custom name input based on combo selection."""
+        is_custom = self.name_combo.currentText() == _CUSTOM_OPTION
+        self.custom_name_edit.setVisible(is_custom)
+
     def _load_phases(self):
         """Load existing phases for the project."""
         conn = get_connection()
@@ -105,7 +162,10 @@ class NewPhaseDialog(QDialog):
         self.source_combo.setVisible(is_inherit)
 
     def _create(self):
-        name = self.name_edit.text().strip()
+        if self.name_combo.currentText() == _CUSTOM_OPTION:
+            name = self.custom_name_edit.text().strip()
+        else:
+            name = self.name_combo.currentText().strip()
         if not name:
             QMessageBox.warning(
                 self, "Error",
