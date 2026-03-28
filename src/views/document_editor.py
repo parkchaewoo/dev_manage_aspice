@@ -2,11 +2,14 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QTableWidget, QTableWidgetItem, QPushButton, QComboBox,
-    QHeaderView, QTextBrowser, QDialog, QLineEdit, QFormLayout,
+    QHeaderView, QTextBrowser, QTextEdit, QDialog, QLineEdit, QFormLayout,
     QFileDialog, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
+
+import os
+from datetime import date
 
 from src.models.document import DocumentModel
 from src.utils.constants import DocumentStatus, STATUS_COLORS
@@ -34,6 +37,8 @@ class DocumentEditorWidget(QWidget):
         header.addWidget(self.btn_add)
         layout.addLayout(header)
 
+        self._selected_doc_id = None
+
         # 문서 테이블
         self.table = QTableWidget()
         self.table.setColumnCount(4)
@@ -48,11 +53,22 @@ class DocumentEditorWidget(QWidget):
         self.table.cellClicked.connect(self._on_cell_clicked)
         layout.addWidget(self.table)
 
-        # 문서 미리보기
-        self.preview = QTextBrowser()
-        self.preview.setMaximumHeight(200)
-        self.preview.setPlaceholderText("Select a document to preview / 문서를 선택하면 미리보기가 표시됩니다")
-        layout.addWidget(self.preview)
+        # 문서 편집기 (Rich Editor)
+        self.content_edit = QTextEdit()
+        self.content_edit.setMinimumHeight(200)
+        self.content_edit.setPlaceholderText(
+            "Select a document and edit content here / 문서를 선택하고 여기서 내용을 편집하세요"
+        )
+        layout.addWidget(self.content_edit)
+
+        # Save Content 버튼
+        save_content_layout = QHBoxLayout()
+        save_content_layout.addStretch()
+        self.btn_save_content = QPushButton("Save Content / 내용 저장")
+        self.btn_save_content.setMaximumWidth(200)
+        self.btn_save_content.clicked.connect(self._save_content)
+        save_content_layout.addWidget(self.btn_save_content)
+        layout.addLayout(save_content_layout)
 
     def load_stage(self, stage_id, conn=None):
         """단계의 문서 목록 로드"""
@@ -111,20 +127,33 @@ class DocumentEditorWidget(QWidget):
         if should_close:
             conn.close()
 
+    def _save_content(self):
+        """Save the content editor text to the selected document."""
+        if not self._selected_doc_id:
+            QMessageBox.warning(
+                self, "No Document Selected",
+                "Please select a document first.\n문서를 먼저 선택해주세요."
+            )
+            return
+        content = self.content_edit.toPlainText()
+        try:
+            DocumentModel.update(self._selected_doc_id, content=content)
+            QMessageBox.information(
+                self, "Saved / 저장됨",
+                "Document content saved successfully.\n문서 내용이 저장되었습니다."
+            )
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to save content:\n{e}")
+
     def _on_cell_clicked(self, row, col):
-        """문서 선택 시 미리보기"""
+        """문서 선택 시 내용을 편집기에 로드"""
         item = self.table.item(row, 0)
         if item:
             doc_id = item.data(Qt.UserRole)
             doc = DocumentModel.get_by_id(doc_id)
             if doc:
-                self.preview.setHtml(
-                    f"<h3>{doc['name']}</h3>"
-                    f"<p><b>Status / 상태:</b> {doc['status']}</p>"
-                    f"<p><b>Template / 템플릿:</b> {doc['template_type'] or 'N/A'}</p>"
-                    f"<p><b>File / 파일:</b> {doc['file_path'] or 'N/A'}</p>"
-                    f"<p><b>Notes / 메모:</b> {doc['notes'] or '-'}</p>"
-                )
+                self._selected_doc_id = doc_id
+                self.content_edit.setPlainText(doc["content"] or "")
 
     def _export_md(self, doc_id):
         """Export document as Markdown."""
@@ -152,6 +181,48 @@ class DocumentEditorWidget(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "Export Error", str(e))
 
+    def _load_template_content(self, template_type):
+        """Load template content based on the stage's SWE level or template_type."""
+        from src.services.export_service import _TEMPLATE_MAP, _TEMPLATES_DIR
+        from src.models.stage import StageModel
+        from src.models.project import ProjectModel
+        from src.models.oem import OemModel
+
+        # Try template_type first, then fall back to SWE level
+        filename = _TEMPLATE_MAP.get(template_type)
+        if not filename and self.stage_id:
+            stage = StageModel.get_by_id(self.stage_id)
+            if stage:
+                filename = _TEMPLATE_MAP.get(stage["swe_level"])
+
+        if not filename:
+            return ""
+
+        path = os.path.join(_TEMPLATES_DIR, filename)
+        if not os.path.isfile(path):
+            return ""
+
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # Fill placeholders
+        project_name = ""
+        oem_name = ""
+        if self.stage_id:
+            stage = StageModel.get_by_id(self.stage_id)
+            if stage:
+                project = ProjectModel.get_by_id(stage["project_id"])
+                if project:
+                    project_name = project["name"]
+                    oem = OemModel.get_by_id(project["oem_id"])
+                    if oem:
+                        oem_name = oem["name"]
+
+        content = content.replace("{project_name}", project_name)
+        content = content.replace("{oem_name}", oem_name)
+        content = content.replace("{date}", str(date.today()))
+        return content
+
     def _add_document(self):
         if not self.stage_id:
             return
@@ -159,6 +230,12 @@ class DocumentEditorWidget(QWidget):
         if dialog.exec_():
             data = dialog.get_data()
             try:
+                # Auto-load template content for new documents
+                template_type = data.get("template_type", "")
+                if template_type:
+                    template_content = self._load_template_content(template_type)
+                    if template_content:
+                        data["content"] = template_content
                 DocumentModel.create(self.stage_id, **data)
                 self.load_stage(self.stage_id)
             except Exception as e:

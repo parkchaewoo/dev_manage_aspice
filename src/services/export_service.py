@@ -12,7 +12,7 @@ from src.models.traceability import TraceabilityModel
 from src.utils.constants import SWE_STAGES, VMODEL_PAIRS
 
 
-# Map SWE level to template filename
+# Map SWE level and template_type to template filename
 _TEMPLATE_MAP = {
     "SWE.1": "SWE1_requirements_spec.md",
     "SWE.2": "SWE2_architecture_design.md",
@@ -20,6 +20,21 @@ _TEMPLATE_MAP = {
     "SWE.4": "SWE4_unit_test_report.md",
     "SWE.5": "SWE5_integration_test_report.md",
     "SWE.6": "SWE6_qualification_test_report.md",
+    # Entries by template_type:
+    "srs": "SWE1_requirements_spec.md",
+    "traceability_matrix": "SWE1_traceability_matrix.md",
+    "req_review": "SWE1_review_report.md",
+    "sad": "SWE2_architecture_design.md",
+    "idd": "SWE2_interface_design.md",
+    "sdd": "SWE3_detailed_design.md",
+    "coding_compliance": "SWE3_coding_guidelines.md",
+    "ut_plan": "SWE4_test_plan.md",
+    "ut_report": "SWE4_unit_test_report.md",
+    "it_plan": "SWE5_integration_strategy.md",
+    "it_report": "SWE5_integration_test_report.md",
+    "qt_plan": "SWE6_test_plan.md",
+    "qt_report": "SWE6_qualification_test_report.md",
+    "release_note": "SWE6_release_note.md",
 }
 
 _TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "templates")

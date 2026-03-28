@@ -119,7 +119,22 @@ def _complete_all_stages(stage_ids, doc_ids, user, conn):
 
 
 def _create_full_traceability(doc_ids, conn):
-    """Helper: create standard V-model traceability links for a phase."""
+    """Helper: create V-model + sequential traceability links for a phase."""
+    # === 순차적 추적성 (derives: 상→하) ===
+    # SWE.1 → SWE.2
+    if doc_ids.get("SWE.1") and doc_ids.get("SWE.2"):
+        TraceabilityModel.create(
+            doc_ids["SWE.1"][0], doc_ids["SWE.2"][0],
+            "derives", "요구사항에서 아키텍처 도출 / Requirements to Architecture", conn
+        )
+    # SWE.2 → SWE.3
+    if doc_ids.get("SWE.2") and doc_ids.get("SWE.3"):
+        TraceabilityModel.create(
+            doc_ids["SWE.2"][0], doc_ids["SWE.3"][0],
+            "derives", "아키텍처에서 상세설계 도출 / Architecture to Detailed Design", conn
+        )
+
+    # === V-Model 추적성 (verifies: 좌↔우) ===
     # SWE.1 <-> SWE.6
     if doc_ids.get("SWE.1") and doc_ids.get("SWE.6"):
         TraceabilityModel.create(
