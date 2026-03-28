@@ -153,7 +153,10 @@ class DocumentEditorWidget(QWidget):
             doc = DocumentModel.get_by_id(doc_id)
             if doc:
                 self._selected_doc_id = doc_id
-                self.content_edit.setPlainText(doc["content"] or "")
+                try:
+                    self.content_edit.setPlainText(doc["content"] or "")
+                except (IndexError, KeyError):
+                    self.content_edit.setPlainText("")
 
     def _export_md(self, doc_id):
         """Export document as Markdown."""

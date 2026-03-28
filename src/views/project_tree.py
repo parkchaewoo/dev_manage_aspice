@@ -170,6 +170,9 @@ class ProjectTreeWidget(QWidget):
             menu.addAction("Delete Project", lambda: self._delete_project(item_id))
         elif item_type == "phase":
             menu.addAction("View Phase", lambda: self.phase_selected.emit(item_id))
+            menu.addAction("Complete & Advance to Next Phase / 완료 후 다음 단계로",
+                          lambda: self._complete_and_advance(item_id))
+            menu.addSeparator()
             menu.addAction("New Phase (Empty)...", lambda: self._new_phase_for_phase(item_id))
             menu.addAction("Inherit from This Phase...", lambda: self._inherit_phase(item_id))
             menu.addSeparator()
@@ -212,6 +215,79 @@ class ProjectTreeWidget(QWidget):
             )
             if dialog.exec_():
                 self.refresh()
+
+    def _complete_and_advance(self, phase_id):
+        """현재 Phase를 완료하고 다음 Phase를 상속하여 생성"""
+        from PyQt5.QtWidgets import QMessageBox
+        from src.models.phase import PhaseModel
+        from src.models.oem import OemModel
+        from src.models.project import ProjectModel
+        from src.utils.yaml_helpers import load_yaml_string
+
+        phase = PhaseModel.get_by_id(phase_id)
+        if not phase:
+            return
+
+        project = ProjectModel.get_by_id(phase["project_id"])
+        oem = OemModel.get_by_id(project["oem_id"]) if project else None
+
+        # OEM config에서 Phase 목록 가져오기
+        oem_phases = []
+        if oem and oem["config_yaml"]:
+            try:
+                config = load_yaml_string(oem["config_yaml"])
+                oem_phases = config.get("phases", []) if config else []
+            except Exception:
+                pass
+
+        # 현재 Phase 다음 단계 결정
+        current_name = phase["name"]
+        next_name = None
+        if oem_phases and current_name in oem_phases:
+            idx = oem_phases.index(current_name)
+            if idx + 1 < len(oem_phases):
+                next_name = oem_phases[idx + 1]
+
+        if not next_name:
+            next_name = f"{current_name} + 1"
+
+        reply = QMessageBox.question(
+            self, "Complete & Advance / 완료 및 다음 단계",
+            f"Current phase '{current_name}' will be marked as Completed.\n"
+            f"Next phase '{next_name}' will be created inheriting approved documents.\n\n"
+            f"현재 단계 '{current_name}'을(를) 완료로 표시하고\n"
+            f"다음 단계 '{next_name}'을(를) 생성합니다.\n"
+            f"승인된 문서가 자동으로 상속됩니다.\n\n"
+            f"Proceed / 진행하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        conn = get_connection()
+        try:
+            # 1. 현재 Phase를 Completed로 변경
+            PhaseModel.update(phase_id, status="Completed", conn=conn)
+
+            # 2. 다음 Phase 상속 생성
+            from src.services.phase_service import create_phase_inherited
+            new_phase_id = create_phase_inherited(
+                phase["project_id"], next_name, phase_id,
+                description=f"Inherited from {current_name}",
+                conn=conn
+            )
+
+            conn.close()
+            QMessageBox.information(
+                self, "Success / 성공",
+                f"Phase '{current_name}' completed.\n"
+                f"Phase '{next_name}' created with inherited documents.\n\n"
+                f"'{current_name}' 완료, '{next_name}' 생성 완료."
+            )
+            self.refresh()
+        except Exception as e:
+            conn.close()
+            QMessageBox.warning(self, "Error", f"Failed: {e}")
 
     def _delete_phase(self, phase_id):
         from PyQt5.QtWidgets import QMessageBox
