@@ -3,6 +3,7 @@
 Generates a comprehensive HTML compliance evidence report covering
 SWE stage analysis, V-Model traceability, and gap analysis.
 """
+import json
 import os
 from datetime import datetime
 
@@ -483,6 +484,51 @@ def _html_executive_summary(overall_pct, total_docs, approved, pending, missing)
 """
 
 
+def _render_content_preview(content, swe_key):
+    """Render document content as HTML table if JSON items, or as text preview."""
+    # Headers per SWE level for JSON items
+    _ITEM_HEADERS = {
+        "SWE.1": (["ID", "Requirement", "Priority", "Verification", "Notes"],
+                   ["id", "requirement", "priority", "verification", "notes"]),
+        "SWE.2": (["ID", "Component", "Responsibility", "Input", "Output", "Notes"],
+                   ["id", "component", "responsibility", "input", "output", "notes"]),
+        "SWE.3": (["ID", "Function", "Input", "Output", "Description", "Notes"],
+                   ["id", "function", "input", "output", "description", "notes"]),
+        "SWE.4": (["ID", "Function", "Test Desc", "Expected", "Actual", "Result", "Notes"],
+                   ["id", "function", "test_desc", "expected", "actual", "result", "notes"]),
+        "SWE.5": (["ID", "Interface", "Test Desc", "Expected", "Actual", "Result", "Notes"],
+                   ["id", "interface", "test_desc", "expected", "actual", "result", "notes"]),
+        "SWE.6": (["ID", "Req ID", "Test Desc", "Expected", "Actual", "Result", "Notes"],
+                   ["id", "req_id", "test_desc", "expected", "actual", "result", "notes"]),
+    }
+    try:
+        items = json.loads(content)
+        if isinstance(items, list) and items and isinstance(items[0], dict):
+            headers_keys = _ITEM_HEADERS.get(swe_key)
+            if headers_keys:
+                headers, keys = headers_keys
+            else:
+                keys = list(items[0].keys())
+                headers = [k.replace("_", " ").title() for k in keys]
+
+            parts = ['<table style="font-size:12px;margin:8px 0">']
+            parts.append('<tr>' + ''.join(f'<th>{_esc(h)}</th>' for h in headers) + '</tr>')
+            for item in items:
+                parts.append('<tr>' + ''.join(
+                    f'<td>{_esc(str(item.get(k, "")))}</td>' for k in keys
+                ) + '</tr>')
+            parts.append('</table>')
+            return '\n'.join(parts)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    # Legacy text content fallback
+    preview = content[:500]
+    return (f'<pre style="background:#f9f9fb;padding:10px;border-radius:6px;'
+            f'font-size:12px;white-space:pre-wrap;max-height:200px;overflow:auto">'
+            f'{_esc(preview)}{"..." if len(content) > 500 else ""}</pre>')
+
+
 def _html_swe_analysis(stage_data):
     parts = ["""
 <!-- SWE Stage Analysis / SWE 단계 분석 -->
@@ -544,14 +590,11 @@ def _html_swe_analysis(stage_data):
                     content = d["content"] or ""
                 except (IndexError, KeyError):
                     content = ""
-                preview = content[:500] if content else ""
                 parts.append(f'<details style="margin:4px 0 8px 0">')
                 parts.append(f'<summary style="cursor:pointer;color:#007AFF;font-size:13px">'
                              f'{_esc(d["name"])} - Content Preview / 내용 미리보기</summary>')
-                if preview:
-                    parts.append(f'<pre style="background:#f9f9fb;padding:10px;border-radius:6px;'
-                                 f'font-size:12px;white-space:pre-wrap;max-height:200px;overflow:auto">'
-                                 f'{_esc(preview)}{"..." if len(content) > 500 else ""}</pre>')
+                if content:
+                    parts.append(_render_content_preview(content, swe_key))
                 else:
                     parts.append('<p style="color:#8E8E93;font-size:13px;padding:8px">No content / 내용 없음</p>')
                 parts.append('</details>')
