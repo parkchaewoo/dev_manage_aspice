@@ -338,7 +338,9 @@ def export_project_report(project_id, output_path, conn=None):
                 lines.append(f"### Traceability to {pair_swe} / {pair_swe} 추적성")
                 lines.append("")
                 lines.append(f"- Links / 링크: {completeness['link_count']}")
-                lines.append(f"- Linked documents / 연결된 문서: {completeness['linked_docs']}/{completeness['total_docs']}")
+                linked = completeness.get('linked_items', completeness.get('linked_docs', 0))
+                total = completeness.get('items_stage_1', completeness.get('total_docs', 0))
+                lines.append(f"- Linked items / 연결된 아이템: {linked}/{total}")
                 lines.append(f"- Completeness / 완성도: {completeness['completeness_pct']:.0f}%")
                 lines.append("")
 
