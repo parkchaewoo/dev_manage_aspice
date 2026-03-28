@@ -577,7 +577,7 @@ def _html_vmodel_traceability(vmodel_data):
                 parts.append(
                     f'<tr><td>{_esc(lnk["source_name"])}</td>'
                     f'<td>{_esc(lnk["target_name"])}</td>'
-                    f'<td>{_esc(lnk.get("link_type", ""))}</td></tr>'
+                    f'<td>{_esc(lnk["link_type"] if lnk["link_type"] else "")}</td></tr>'
                 )
             parts.append('</table>')
 
